@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>A carregar...</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    // Processa o link mágico
+    window.addEventListener('load', async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (session) {
+        // Sessão iniciada, redireciona para a app
+        window.location.href = 'app.html';
+      } else {
+        document.body.innerText = 'Erro ao iniciar sessão. Tenta novamente.';
+      }
+    });
+  </script>
+</head>
+<body>A processar o login...</body>
+</html>

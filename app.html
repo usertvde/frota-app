@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestão de Frota</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚛 Gestão de Frota</h1>
+      <button id="logout-btn">Terminar Sessão</button>
+    </div>
+
+    <!-- Separadores simples -->
+    <div class="tabs">
+      <button class="tab active" data-tab="vehicles">Veículos</button>
+      <button class="tab" data-tab="drivers">Condutores</button>
+      <button class="tab" data-tab="trips">Utilizações</button>
+    </div>
+
+    <!-- Painel de Veículos -->
+    <div id="vehicles-panel" class="panel active">
+      <h2>Veículos</h2>
+      <form id="vehicle-form">
+        <input type="text" id="v-brand" placeholder="Marca" required>
+        <input type="text" id="v-model" placeholder="Modelo" required>
+        <input type="text" id="v-plate" placeholder="Matrícula" required>
+        <input type="number" id="v-year" placeholder="Ano">
+        <label>Foto do veículo:
+          <input type="file" id="v-photo" accept="image/*">
+        </label>
+        <button type="submit">Adicionar Veículo</button>
+      </form>
+      <div id="vehicles-list"></div>
+    </div>
+
+    <!-- Painel de Condutores -->
+    <div id="drivers-panel" class="panel">
+      <h2>Condutores</h2>
+      <form id="driver-form">
+        <input type="text" id="d-name" placeholder="Nome completo" required>
+        <input type="email" id="d-email" placeholder="Email">
+        <input type="tel" id="d-phone" placeholder="Telefone">
+        <button type="submit">Adicionar Condutor</button>
+      </form>
+      <div id="drivers-list"></div>
+    </div>
+
+    <!-- Painel de Utilizações -->
+    <div id="trips-panel" class="panel">
+      <h2>Registar Utilização</h2>
+      <form id="trip-form">
+        <label>Veículo:
+          <select id="t-vehicle" required></select>
+        </label>
+        <label>Condutor:
+          <select id="t-driver" required></select>
+        </label>
+        <label>Data/Hora início:
+          <input type="datetime-local" id="t-start-time">
+        </label>
+        <label>Km início:
+          <input type="number" id="t-start-km" required>
+        </label>
+        <label>Foto antes da utilização:
+          <input type="file" id="t-start-photo" accept="image/*">
+        </label>
+        <label>Data/Hora fim:
+          <input type="datetime-local" id="t-end-time">
+        </label>
+        <label>Km fim:
+          <input type="number" id="t-end-km">
+        </label>
+        <label>Foto depois da utilização:
+          <input type="file" id="t-end-photo" accept="image/*">
+        </label>
+        <label>Notas:
+          <textarea id="t-notes"></textarea>
+        </label>
+        <button type="submit">Registar Utilização</button>
+      </form>
+      <h2>Histórico de Utilizações</h2>
+      <div id="trips-list"></div>
+    </div>
+  </div>
+</body>
+</html>

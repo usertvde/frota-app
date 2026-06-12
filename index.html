@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Frota App - Login</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js" defer></script>
+  <script src="auth.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Gestão de Frota</h1>
+    <p>Introduz o teu email para receber um link de acesso.</p>
+    <form id="login-form">
+      <input type="email" id="email" placeholder="O teu email" required>
+      <button type="submit">Enviar link mágico</button>
+    </form>
+    <p id="message"></p>
+  </div>
+</body>
+</html>
