@@ -3,20 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>A carregar...</title>
+  <link rel="manifest" href="/manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
-  <script>
-    // Processa o link mágico
-    window.addEventListener('load', async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (session) {
-        // Sessão iniciada, redireciona para a app
-        window.location.href = 'app.html';
-      } else {
-        document.body.innerText = 'Erro ao iniciar sessão. Tenta novamente.';
-      }
-    });
-  </script>
 </head>
-<body>A processar o login...</body>
+<body>
+  <p>A processar o login...</p>
+  <script>
+    (async () => {
+      const { data: { session }, error } = await window.supabase.auth.getSession();
+      if (session) {
+        window.location.href = 'app.html';
+      } else if (error) {
+        document.body.innerHTML = `Erro: ${error.message}. <br> <a href="/">Tenta novamente</a>`;
+      } else {
+        document.body.innerHTML = 'Sessão não encontrada. <a href="/">Tenta novamente</a>';
+      }
+    })();
+  </script>
+</body>
 </html>
