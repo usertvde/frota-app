@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Gestão de Frota</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 Painel Admin</h1>
+      <button id="logout-btn">Terminar Sessão</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="vehicles">Veículos</button>
+      <button class="tab" data-tab="drivers">Motoristas</button>
+      <button class="tab" data-tab="trips">Viagens</button>
+      <button class="tab" data-tab="password">Alterar Password</button>
+    </div>
+
+    <!-- Painel de Veículos -->
+    <div id="vehicles-panel" class="panel active">
+      <h2>Gestão de Veículos</h2>
+      <form id="vehicle-form">
+        <input type="text" id="v-brand" placeholder="Marca" required>
+        <input type="text" id="v-model" placeholder="Modelo" required>
+        <input type="text" id="v-plate" placeholder="Matrícula" required>
+        <input type="number" id="v-year" placeholder="Ano">
+        <label>Foto do veículo: <input type="file" id="v-photo" accept="image/*"></label>
+        <button type="submit">Adicionar</button>
+      </form>
+      <div id="vehicles-list"></div>
+    </div>
+
+    <!-- Painel de Motoristas -->
+    <div id="drivers-panel" class="panel">
+      <h2>Gestão de Motoristas</h2>
+      <form id="driver-form">
+        <input type="email" id="d-email" placeholder="Email do motorista" required>
+        <input type="password" id="d-password" placeholder="Palavra-passe temporária" required>
+        <input type="text" id="d-name" placeholder="Nome completo">
+        <button type="submit">Criar Motorista</button>
+      </form>
+      <div id="drivers-list"></div>
+    </div>
+
+    <!-- Painel de Viagens (admin vê todas) -->
+    <div id="trips-panel" class="panel">
+      <h2>Todas as Viagens</h2>
+      <div>
+        <label>Filtrar por data: <input type="date" id="filter-date"></label>
+        <label>Veículo: <select id="filter-vehicle"><option value="">Todos</option></select></label>
+        <label>Motorista: <select id="filter-driver"><option value="">Todos</option></select></label>
+        <button id="apply-filters">Filtrar</button>
+      </div>
+      <div id="trips-list"></div>
+    </div>
+
+    <!-- Painel Alterar Password Admin -->
+    <div id="password-panel" class="panel">
+      <h2>Alterar a minha palavra-passe</h2>
+      <form id="change-password-form">
+        <input type="password" id="new-password1" placeholder="Nova palavra-passe" required>
+        <input type="password" id="new-password2" placeholder="Confirmar nova palavra-passe" required>
+        <button type="submit">Alterar</button>
+      </form>
+      <p id="change-pwd-msg"></p>
+      <hr>
+      <h3>Recuperar palavra-passe (esqueci-me)</h3>
+      <p>Email de recuperação: <span id="admin-email"></span> <button id="change-recovery-email">Alterar</button></p>
+      <button id="send-reset-email">Enviar link de recuperação para o meu email</button>
+    </div>
+  </div>
+
+  <script>
+    let sessionToken = '';
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = 'login.html';
+        return;
+      }
+      sessionToken = session.access_token;
+
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+      if (!profile || profile.role !== 'admin') {
+        alert('Acesso negado');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      setupLogout('logout-btn');
+      setupTabs();
+      loadVehicles();
+      loadDrivers();
+      loadTrips();
+      loadAdminEmail();
+      setupVehicleForm();
+      setupDriverForm();
+      setupChangePassword();
+      setupFilters();
+      setupRecovery();
+    })();
+
+    // ... (as funções de UI, CRUD, etc., são muito longas para colocar aqui, vou fornecer um resumo e depois os ficheiros completos num bloco final)
+  </script>
+</body>
+</html>

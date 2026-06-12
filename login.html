@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Gestão de Frota</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🚛 Gestão de Frota</h1>
+    <form id="login-form">
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Palavra-passe" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <p id="error-msg" style="color:red;"></p>
+    <p><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
+  </div>
+  <script>
+    // Se já estiver logado, redireciona para a página correta
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        redirectBasedOnRole(session.user.id);
+      }
+    })();
+  </script>
+</body>
+</html>
