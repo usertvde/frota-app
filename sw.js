@@ -1,6 +1,5 @@
 const CACHE_NAME = 'frota-v2';
 const urlsToCache = [
-  '/',
   '/login.html',
   '/admin.html',
   '/driver.html',

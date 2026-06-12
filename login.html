@@ -6,29 +6,101 @@
   <title>Login - Gestão de Frota</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js" defer></script>
-  <script src="app.js" defer></script>
 </head>
 <body>
   <div class="container">
     <h1>🚛 Gestão de Frota</h1>
     <form id="login-form">
-      <input type="email" id="email" placeholder="Email" required>
-      <input type="password" id="password" placeholder="Palavra-passe" required>
+      <input type="text" id="login-id" placeholder="Nome de utilizador ou email" required autocomplete="username">
+      <input type="password" id="password" placeholder="Palavra-passe" required autocomplete="current-password">
       <button type="submit">Entrar</button>
     </form>
     <p id="error-msg" style="color:red;"></p>
     <p><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
   <script>
-    // Se já estiver logado, redireciona para a página correta
+    const supabase = window.supabase; // já definida globalmente
+
+    // Se já estiver logado, redireciona
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         redirectBasedOnRole(session.user.id);
       }
     })();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loginId = document.getElementById('login-id').value.trim();
+      const password = document.getElementById('password').value;
+      let email = loginId;
+
+      // Se não for um email, assume que é um nome de utilizador e obtém o email associado
+      if (!loginId.includes('@')) {
+        try {
+          const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+          if (error || !data || data.length === 0) {
+            document.getElementById('error-msg').textContent = 'Nome de utilizador não encontrado.';
+            return;
+          }
+          email = data; // a função retorna o email diretamente
+        } catch (err) {
+          document.getElementById('error-msg').textContent = 'Erro ao procurar utilizador.';
+          return;
+        }
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        document.getElementById('error-msg').textContent = 'Erro: ' + error.message;
+      } else {
+        redirectBasedOnRole(data.user.id);
+      }
+    });
+
+    // Recuperação de password (usa email, então para o admin pedimos o email associado)
+    document.getElementById('forgot-password').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const loginId = document.getElementById('login-id').value.trim();
+      let email = loginId;
+      if (!loginId.includes('@')) {
+        const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+        if (error || !data || data.length === 0) {
+          alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
+          return;
+        }
+        email = data;
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/login.html',
+      });
+      if (error) {
+        alert('Erro: ' + error.message);
+      } else {
+        alert('Email de recuperação enviado. Verifica a tua caixa de entrada.');
+      }
+    });
+
+    async function redirectBasedOnRole(userId) {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+      if (error || !profile) {
+        await supabase.auth.signOut();
+        alert('Perfil não encontrado.');
+        return;
+      }
+      if (profile.role === 'admin') {
+        window.location.href = 'admin.html';
+      } else {
+        window.location.href = 'driver.html';
+      }
+    }
   </script>
 </body>
 </html>

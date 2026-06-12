@@ -1,4 +1,4 @@
-// Função de compressão de imagem (igual à anterior)
+// Compressão de imagem e upload (sem alterações)
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,7 +38,6 @@ function compressImage(file) {
   });
 }
 
-// Função de upload de foto
 async function uploadPhoto(file) {
   if (!file) return null;
   const compressed = await compressImage(file);
@@ -58,6 +57,19 @@ async function uploadPhoto(file) {
     .from('fleet-photos')
     .getPublicUrl(filePath);
   return urlData.publicUrl;
+}
+
+// Função para chamar a Edge Function (admin)
+async function callEdgeFunction(action, payload, sessionToken) {
+  const res = await fetch(EDGE_FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`,
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  return res.json();
 }
 
 // Redirecionar com base no perfil
@@ -85,17 +97,4 @@ function setupLogout(buttonId) {
     await supabase.auth.signOut();
     window.location.href = 'login.html';
   });
-}
-
-// Função para chamar a Edge Function (admin only)
-async function callEdgeFunction(action, payload, sessionToken) {
-  const res = await fetch(EDGE_FUNCTION_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionToken}`,
-    },
-    body: JSON.stringify({ action, ...payload }),
-  });
-  return res.json();
 }

@@ -6,9 +6,6 @@
   <title>Motorista - Gestão de Frota</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js" defer></script>
-  <script src="app.js" defer></script>
 </head>
 <body>
   <div class="container">
@@ -16,12 +13,160 @@
       <h1>🚚 Painel do Motorista</h1>
       <button id="logout-btn">Terminar Sessão</button>
     </div>
-    <div id="driver-content">
-      <!-- Será preenchido dinamicamente -->
-    </div>
+    <div id="driver-content"></div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="app.js"></script>
   <script>
-    // Lógica do motorista (iniciar viagem, terminar, histórico)
+    let sessionToken = '';
+    let currentTripId = null;
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = 'login.html';
+        return;
+      }
+      sessionToken = session.access_token;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+      if (!profile || profile.role !== 'driver') {
+        alert('Acesso negado');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      setupLogout('logout-btn');
+      await renderDriverView();
+    })();
+
+    async function renderDriverView() {
+      const { data: ongoing } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', (await supabase.auth.getUser()).data.user.id)
+        .eq('status', 'started')
+        .maybeSingle();
+
+      const container = document.getElementById('driver-content');
+      if (ongoing) {
+        currentTripId = ongoing.id;
+        container.innerHTML = `
+          <h2>Viagem em andamento</h2>
+          <p>Veículo: <span id="current-vehicle"></span></p>
+          <p>Início: ${new Date(ongoing.start_time).toLocaleString()}</p>
+          <p>Km inicial: ${ongoing.start_km}</p>
+          <img src="${ongoing.start_photo_url || ''}" width="100">
+          <h3>Finalizar viagem</h3>
+          <form id="end-trip-form">
+            <label>Km final: <input type="number" id="end-km" required></label>
+            <label>Foto final: <input type="file" id="end-photo" accept="image/*"></label>
+            <label>Notas: <textarea id="end-notes"></textarea></label>
+            <button type="submit">Terminar viagem</button>
+          </form>
+        `;
+        const { data: vehicle } = await supabase.from('vehicles').select('brand, model').eq('id', ongoing.vehicle_id).single();
+        document.getElementById('current-vehicle').textContent = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Desconhecido';
+        setupEndTripForm();
+      } else {
+        container.innerHTML = `
+          <h2>Iniciar nova viagem</h2>
+          <form id="start-trip-form">
+            <label>Veículo: <select id="vehicle-select" required></select></label>
+            <label>Km inicial: <input type="number" id="start-km" required></label>
+            <label>Foto inicial: <input type="file" id="start-photo" accept="image/*"></label>
+            <button type="submit">Começar viagem</button>
+          </form>
+          <h2>Histórico de viagens</h2>
+          <div id="history-list"></div>
+        `;
+        await loadVehiclesSelect();
+        setupStartTripForm();
+        await loadHistory();
+      }
+    }
+
+    async function loadVehiclesSelect() {
+      const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model, license_plate');
+      const select = document.getElementById('vehicle-select');
+      select.innerHTML = vehicles.map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
+    }
+
+    function setupStartTripForm() {
+      document.getElementById('start-trip-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const vehicle_id = document.getElementById('vehicle-select').value;
+        const start_km = parseInt(document.getElementById('start-km').value);
+        const photoFile = document.getElementById('start-photo').files[0];
+        let start_photo_url = null;
+        if (photoFile) start_photo_url = await uploadPhoto(photoFile);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase.from('trips').insert({
+          user_id: user.id,
+          vehicle_id: parseInt(vehicle_id),
+          start_km,
+          start_photo_url,
+          status: 'started'
+        });
+        if (error) { alert('Erro: ' + error.message); } else {
+          alert('Viagem iniciada!');
+          renderDriverView();
+        }
+      });
+    }
+
+    function setupEndTripForm() {
+      document.getElementById('end-trip-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const end_km = parseInt(document.getElementById('end-km').value);
+        const photoFile = document.getElementById('end-photo').files[0];
+        let end_photo_url = null;
+        if (photoFile) end_photo_url = await uploadPhoto(photoFile);
+        const notes = document.getElementById('end-notes').value;
+
+        const { error } = await supabase.from('trips')
+          .update({
+            end_time: new Date().toISOString(),
+            end_km,
+            end_photo_url,
+            notes,
+            status: 'ended'
+          })
+          .eq('id', currentTripId);
+
+        if (error) { alert('Erro: ' + error.message); } else {
+          alert('Viagem finalizada!');
+          currentTripId = null;
+          renderDriverView();
+        }
+      });
+    }
+
+    async function loadHistory() {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: trips } = await supabase.from('trips')
+        .select('*, vehicles(*)')
+        .eq('user_id', user.id)
+        .order('start_time', { ascending: false });
+      const historyDiv = document.getElementById('history-list');
+      historyDiv.innerHTML = trips.map(t => `
+        <div class="card">
+          <p><strong>${t.vehicles?.brand} ${t.vehicles?.model}</strong></p>
+          <p>Início: ${new Date(t.start_time).toLocaleString()} - Km: ${t.start_km}</p>
+          <p>Fim: ${t.end_time ? new Date(t.end_time).toLocaleString() + ' - Km: ' + t.end_km : 'Em andamento'}</p>
+          ${t.start_photo_url ? `<img src="${t.start_photo_url}" width="60">` : ''}
+          ${t.end_photo_url ? `<img src="${t.end_photo_url}" width="60">` : ''}
+          <p>Notas: ${t.notes || '-'}</p>
+        </div>
+      `).join('');
+    }
   </script>
 </body>
 </html>
