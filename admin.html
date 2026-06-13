@@ -84,11 +84,12 @@
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
         return;
       }
       sessionToken = session.access_token;
 
+      // Verificar se é admin
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -96,7 +97,7 @@
         .single();
       if (!profile || profile.role !== 'admin') {
         alert('Acesso negado');
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
         return;
       }
 
@@ -126,22 +127,31 @@
     }
 
     async function loadVehicles() {
-      const { data } = await supabase.from('vehicles').select('*').order('id', { ascending: false });
+      const { data, error } = await supabase.from('vehicles').select('*').order('id', { ascending: false });
+      if (error) {
+        console.error('Erro ao carregar veículos:', error);
+        return;
+      }
       const list = document.getElementById('vehicles-list');
       list.innerHTML = data.map(v => `
         <div class="card">
-          ${v.photo_url ? `<img src="${v.photo_url}" alt="Foto">` : ''}
-          <strong>${v.brand} ${v.model}</strong> (${v.year}) - ${v.license_plate}
+          ${v.photo_url ? `<img src="${v.photo_url}" alt="Foto" style="max-width:150px;">` : ''}
+          <p><strong>${v.brand} ${v.model}</strong> (${v.year})</p>
+          <p>Matrícula: ${v.license_plate}</p>
           <button onclick="deleteVehicle(${v.id})">Apagar</button>
         </div>
       `).join('');
     }
 
-    async function deleteVehicle(id) {
-      if (!confirm('Apagar veículo?')) return;
-      await supabase.from('vehicles').delete().eq('id', id);
-      loadVehicles();
-    }
+    window.deleteVehicle = async function(id) {
+      if (!confirm('Apagar este veículo?')) return;
+      const { error } = await supabase.from('vehicles').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao apagar: ' + error.message);
+      } else {
+        loadVehicles();
+      }
+    };
 
     function setupVehicleForm() {
       document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
@@ -151,41 +161,74 @@
         const plate = document.getElementById('v-plate').value;
         const year = document.getElementById('v-year').value;
         const photoFile = document.getElementById('v-photo').files[0];
+
         let photo_url = null;
-        if (photoFile) photo_url = await uploadPhoto(photoFile);
-        const { error } = await supabase.from('vehicles').insert({ brand, model, license_plate: plate, year: parseInt(year) || null, photo_url });
-        if (error) alert('Erro: ' + error.message);
-        else {
-          e.target.reset();
+        if (photoFile) {
+          photo_url = await uploadPhoto(photoFile);
+        }
+
+        const { error } = await supabase.from('vehicles').insert({
+          brand,
+          model,
+          license_plate: plate,
+          year: parseInt(year) || null,
+          photo_url
+        });
+
+        if (error) {
+          alert('Erro: ' + error.message);
+        } else {
+          document.getElementById('vehicle-form').reset();
           loadVehicles();
         }
       });
     }
 
     async function loadDrivers() {
-      const { data: drivers } = await supabase.from('profiles').select('*').eq('role', 'driver');
+      const { data: drivers, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'driver')
+        .order('id', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar motoristas:', error);
+        return;
+      }
+
       const list = document.getElementById('drivers-list');
       list.innerHTML = drivers.map(d => `
         <div class="card">
-          <p><strong>${d.full_name || 'Sem nome'}</strong> - ${d.email}</p>
+          <p><strong>${d.full_name || 'Sem nome'}</strong></p>
+          <p>Email: ${d.email || '-'}</p>
           <button onclick="resetDriverPassword('${d.email}')">Repor password</button>
           <button onclick="deleteDriver('${d.user_id}')">Apagar</button>
         </div>
       `).join('');
     }
 
-    async function resetDriverPassword(email) {
+    window.resetDriverPassword = async function(email) {
+      if (!email) {
+        alert('Este motorista não tem email associado.');
+        return;
+      }
       const result = await callEdgeFunction('reset-password', { email }, sessionToken);
-      if (result.error) alert('Erro: ' + result.error);
-      else alert('Email de redefinição enviado para ' + email);
-    }
+      if (result.error) {
+        alert('Erro: ' + result.error);
+      } else {
+        alert('Email de redefinição enviado para ' + email);
+      }
+    };
 
-    async function deleteDriver(userId) {
-      if (!confirm('Apagar motorista? Isto remove o acesso permanentemente.')) return;
+    window.deleteDriver = async function(userId) {
+      if (!confirm('Apagar este motorista? Isto remove o acesso permanentemente.')) return;
       const result = await callEdgeFunction('delete-driver', { userId }, sessionToken);
-      if (result.error) alert('Erro: ' + result.error);
-      else loadDrivers();
-    }
+      if (result.error) {
+        alert('Erro: ' + result.error);
+      } else {
+        loadDrivers();
+      }
+    };
 
     function setupDriverForm() {
       document.getElementById('driver-form').addEventListener('submit', async (e) => {
@@ -193,29 +236,45 @@
         const email = document.getElementById('d-email').value;
         const password = document.getElementById('d-password').value;
         const fullName = document.getElementById('d-name').value;
+
         const result = await callEdgeFunction('create-driver', { email, password }, sessionToken);
         if (result.error) {
           alert('Erro: ' + result.error);
         } else {
+          // Atualizar o nome completo no perfil
           if (fullName) {
             await supabase.from('profiles').update({ full_name: fullName }).eq('user_id', result.userId);
           }
           alert('Motorista criado com sucesso!');
-          e.target.reset();
+          document.getElementById('driver-form').reset();
           loadDrivers();
         }
       });
     }
 
     async function loadTrips(filters = {}) {
-      let query = supabase.from('trips').select('*, vehicles(*), profiles!trips_user_id_fkey(full_name, email)').order('start_time', { ascending: false });
+      let query = supabase
+        .from('trips')
+        .select('*, vehicles(*), profiles!trips_user_id_fkey(full_name, email)')
+        .order('start_time', { ascending: false });
+
       if (filters.date) {
         query = query.gte('start_time', filters.date).lt('start_time', filters.date + 'T23:59:59');
       }
-      if (filters.vehicle_id) query = query.eq('vehicle_id', filters.vehicle_id);
-      if (filters.driver_id) query = query.eq('user_id', filters.driver_id);
+      if (filters.vehicle_id) {
+        query = query.eq('vehicle_id', filters.vehicle_id);
+      }
+      if (filters.driver_id) {
+        query = query.eq('user_id', filters.driver_id);
+      }
+
       const { data: trips, error } = await query;
-      if (error) { console.error(error); return; }
+
+      if (error) {
+        console.error('Erro ao carregar viagens:', error);
+        return;
+      }
+
       const list = document.getElementById('trips-list');
       list.innerHTML = trips.map(t => `
         <div class="card">
@@ -251,7 +310,9 @@
 
     async function loadAdminEmail() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) document.getElementById('admin-email').textContent = user.email;
+      if (user) {
+        document.getElementById('admin-email').textContent = user.email;
+      }
     }
 
     function setupChangePassword() {
@@ -259,27 +320,35 @@
         e.preventDefault();
         const pw1 = document.getElementById('new-password1').value;
         const pw2 = document.getElementById('new-password2').value;
+        const msg = document.getElementById('change-pwd-msg');
+
         if (pw1 !== pw2) {
-          document.getElementById('change-pwd-msg').textContent = 'As palavras-passe não coincidem.';
+          msg.textContent = 'As palavras-passe não coincidem.';
+          msg.style.color = 'red';
           return;
         }
+
         const { error } = await supabase.auth.updateUser({ password: pw1 });
-        if (error) document.getElementById('change-pwd-msg').textContent = 'Erro: ' + error.message;
-        else {
-          document.getElementById('change-pwd-msg').textContent = 'Palavra-passe alterada com sucesso!';
-          e.target.reset();
+        if (error) {
+          msg.textContent = 'Erro: ' + error.message;
+          msg.style.color = 'red';
+        } else {
+          msg.textContent = 'Palavra-passe alterada com sucesso!';
+          msg.style.color = 'green';
+          document.getElementById('change-password-form').reset();
         }
       });
 
       document.getElementById('change-recovery-email').addEventListener('click', async () => {
         const newEmail = prompt('Novo email de recuperação:');
-        if (newEmail) {
-          const { error } = await supabase.auth.updateUser({ email: newEmail });
-          if (error) alert('Erro: ' + error.message);
-          else {
-            alert('Email de recuperação alterado. Verifica a tua caixa de entrada para confirmar.');
-            loadAdminEmail();
-          }
+        if (!newEmail) return;
+
+        const { error } = await supabase.auth.updateUser({ email: newEmail });
+        if (error) {
+          alert('Erro: ' + error.message);
+        } else {
+          alert('Email de recuperação alterado. Verifica a tua caixa de entrada para confirmar a mudança.');
+          loadAdminEmail();
         }
       });
     }
@@ -287,12 +356,25 @@
     function setupRecovery() {
       document.getElementById('send-reset-email').addEventListener('click', async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          alert('Erro ao obter dados do utilizador.');
+          return;
+        }
+
+        if (!user.email) {
+          alert('Não tens email de recuperação definido. Define um email primeiro.');
+          return;
+        }
+
         const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-          redirectTo: window.location.origin + '/login.html',
+          redirectTo: window.location.origin + '/index.html',
         });
-        if (error) alert('Erro: ' + error.message);
-        else alert('Email de recuperação enviado.');
+
+        if (error) {
+          alert('Erro: ' + error.message);
+        } else {
+          alert('Email de recuperação enviado para ' + user.email);
+        }
       });
     }
   </script>

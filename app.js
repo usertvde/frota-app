@@ -1,4 +1,4 @@
-// Compressão de imagem e upload (sem alterações)
+// Compressão de imagem e upload (inalterado)
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -72,22 +72,28 @@ async function callEdgeFunction(action, payload, sessionToken) {
   return res.json();
 }
 
-// Redirecionar com base no perfil
+// Redirecionamento baseado no perfil (única definição)
 async function redirectBasedOnRole(userId) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('user_id', userId)
-    .single();
-  if (error || !profile) {
-    await supabase.auth.signOut();
-    window.location.href = 'login.html';
-    return;
-  }
-  if (profile.role === 'admin') {
-    window.location.href = 'admin.html';
-  } else {
-    window.location.href = 'driver.html';
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+    if (error || !profile) {
+      console.error('Erro ao obter perfil:', error);
+      await supabase.auth.signOut();
+      window.location.href = 'index.html';
+      return;
+    }
+    if (profile.role === 'admin') {
+      window.location.href = 'admin.html';
+    } else {
+      window.location.href = 'driver.html';
+    }
+  } catch (e) {
+    console.error(e);
+    window.location.href = 'index.html';
   }
 }
 
@@ -95,6 +101,6 @@ async function redirectBasedOnRole(userId) {
 function setupLogout(buttonId) {
   document.getElementById(buttonId).addEventListener('click', async () => {
     await supabase.auth.signOut();
-    window.location.href = 'login.html';
+    window.location.href = 'index.html';
   });
 }

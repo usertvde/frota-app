@@ -2,21 +2,88 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <title>Frota App - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Gestão de Frota</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js" defer></script>
-  <script src="auth.js" defer></script>
+  <link rel="manifest" href="manifest.json">
 </head>
 <body>
   <div class="container">
-    <h1>Gestão de Frota</h1>
-    <p>Introduz o teu email para receber um link de acesso.</p>
+    <h1>🚛 Gestão de Frota</h1>
     <form id="login-form">
-      <input type="email" id="email" placeholder="O teu email" required>
-      <button type="submit">Enviar link mágico</button>
+      <input type="text" id="login-id" placeholder="Nome de utilizador ou email" required autocomplete="username">
+      <input type="password" id="password" placeholder="Palavra-passe" required autocomplete="current-password">
+      <button type="submit">Entrar</button>
     </form>
-    <p id="message"></p>
+    <p id="error-msg" style="color:red;"></p>
+    <p><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // Verificar sessão ativa
+    (async () => {
+      const { data: { session } } = await window.supabase.auth.getSession();
+      if (session) {
+        redirectBasedOnRole(session.user.id);
+      }
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const loginId = document.getElementById('login-id').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+      errorMsg.textContent = '';
+
+      let email = loginId;
+      // Se não for email, assume username e obtém o email via RPC
+      if (!loginId.includes('@')) {
+        try {
+          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+          if (error || !data) {
+            errorMsg.textContent = 'Nome de utilizador não encontrado.';
+            return;
+          }
+          email = data; // a função retorna o email diretamente
+        } catch (err) {
+          errorMsg.textContent = 'Erro ao procurar utilizador.';
+          console.error(err);
+          return;
+        }
+      }
+
+      const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        errorMsg.textContent = 'Erro: ' + error.message;
+      } else {
+        redirectBasedOnRole(data.user.id);
+      }
+    });
+
+    document.getElementById('forgot-password').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const loginId = document.getElementById('login-id').value.trim();
+      let email = loginId;
+      if (!loginId.includes('@')) {
+        const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+        if (error || !data) {
+          alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
+          return;
+        }
+        email = data;
+      }
+      const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/index.html',
+      });
+      if (error) {
+        alert('Erro: ' + error.message);
+      } else {
+        alert('Email de recuperação enviado. Verifica a tua caixa de entrada.');
+      }
+    });
+  </script>
 </body>
 </html>

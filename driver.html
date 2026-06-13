@@ -26,7 +26,7 @@
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
         return;
       }
       sessionToken = session.access_token;
@@ -36,9 +36,10 @@
         .select('role')
         .eq('user_id', session.user.id)
         .single();
+
       if (!profile || profile.role !== 'driver') {
-        alert('Acesso negado');
-        window.location.href = 'login.html';
+        alert('Acesso negado. Área exclusiva para motoristas.');
+        window.location.href = 'index.html';
         return;
       }
 
@@ -47,45 +48,73 @@
     })();
 
     async function renderDriverView() {
-      const { data: ongoing } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Verificar se tem viagem em aberto
+      const { data: ongoing, error: ongoingError } = await supabase
         .from('trips')
         .select('*')
-        .eq('user_id', (await supabase.auth.getUser()).data.user.id)
+        .eq('user_id', user.id)
         .eq('status', 'started')
         .maybeSingle();
 
+      if (ongoingError) {
+        console.error('Erro ao verificar viagens:', ongoingError);
+        return;
+      }
+
       const container = document.getElementById('driver-content');
+
       if (ongoing) {
         currentTripId = ongoing.id;
         container.innerHTML = `
-          <h2>Viagem em andamento</h2>
-          <p>Veículo: <span id="current-vehicle"></span></p>
-          <p>Início: ${new Date(ongoing.start_time).toLocaleString()}</p>
-          <p>Km inicial: ${ongoing.start_km}</p>
-          <img src="${ongoing.start_photo_url || ''}" width="100">
+          <h2>🚗 Viagem em andamento</h2>
+          <div class="card">
+            <p><strong>Veículo:</strong> <span id="current-vehicle"></span></p>
+            <p><strong>Início:</strong> ${new Date(ongoing.start_time).toLocaleString()}</p>
+            <p><strong>Km inicial:</strong> ${ongoing.start_km}</p>
+            ${ongoing.start_photo_url ? `<img src="${ongoing.start_photo_url}" width="120">` : '<p>Sem foto inicial</p>'}
+          </div>
+
           <h3>Finalizar viagem</h3>
           <form id="end-trip-form">
             <label>Km final: <input type="number" id="end-km" required></label>
-            <label>Foto final: <input type="file" id="end-photo" accept="image/*"></label>
-            <label>Notas: <textarea id="end-notes"></textarea></label>
+            <label>Foto final (opcional): <input type="file" id="end-photo" accept="image/*"></label>
+            <label>Notas: <textarea id="end-notes" rows="3"></textarea></label>
             <button type="submit">Terminar viagem</button>
           </form>
         `;
-        const { data: vehicle } = await supabase.from('vehicles').select('brand, model').eq('id', ongoing.vehicle_id).single();
-        document.getElementById('current-vehicle').textContent = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Desconhecido';
+
+        // Preencher o nome do veículo
+        const { data: vehicle } = await supabase
+          .from('vehicles')
+          .select('brand, model, license_plate')
+          .eq('id', ongoing.vehicle_id)
+          .single();
+
+        document.getElementById('current-vehicle').textContent = vehicle
+          ? `${vehicle.brand} ${vehicle.model} (${vehicle.license_plate})`
+          : 'Desconhecido';
+
         setupEndTripForm();
       } else {
+        // Não tem viagem em aberto
         container.innerHTML = `
-          <h2>Iniciar nova viagem</h2>
+          <h2>➕ Iniciar nova viagem</h2>
           <form id="start-trip-form">
             <label>Veículo: <select id="vehicle-select" required></select></label>
             <label>Km inicial: <input type="number" id="start-km" required></label>
-            <label>Foto inicial: <input type="file" id="start-photo" accept="image/*"></label>
+            <label>Foto inicial (opcional): <input type="file" id="start-photo" accept="image/*"></label>
             <button type="submit">Começar viagem</button>
           </form>
-          <h2>Histórico de viagens</h2>
+          <h2>📋 Histórico de viagens</h2>
           <div id="history-list"></div>
         `;
+
         await loadVehiclesSelect();
         setupStartTripForm();
         await loadHistory();
@@ -93,9 +122,21 @@
     }
 
     async function loadVehiclesSelect() {
-      const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model, license_plate');
+      const { data: vehicles, error } = await supabase
+        .from('vehicles')
+        .select('id, brand, model, license_plate');
+
+      if (error) {
+        console.error('Erro ao carregar veículos:', error);
+        return;
+      }
+
       const select = document.getElementById('vehicle-select');
-      select.innerHTML = vehicles.map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
+      if (!select) return;
+
+      select.innerHTML = vehicles.map(v =>
+        `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`
+      ).join('');
     }
 
     function setupStartTripForm() {
@@ -104,8 +145,11 @@
         const vehicle_id = document.getElementById('vehicle-select').value;
         const start_km = parseInt(document.getElementById('start-km').value);
         const photoFile = document.getElementById('start-photo').files[0];
+
         let start_photo_url = null;
-        if (photoFile) start_photo_url = await uploadPhoto(photoFile);
+        if (photoFile) {
+          start_photo_url = await uploadPhoto(photoFile);
+        }
 
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from('trips').insert({
@@ -115,8 +159,11 @@
           start_photo_url,
           status: 'started'
         });
-        if (error) { alert('Erro: ' + error.message); } else {
-          alert('Viagem iniciada!');
+
+        if (error) {
+          alert('Erro ao iniciar viagem: ' + error.message);
+        } else {
+          alert('Viagem iniciada com sucesso!');
           renderDriverView();
         }
       });
@@ -127,9 +174,12 @@
         e.preventDefault();
         const end_km = parseInt(document.getElementById('end-km').value);
         const photoFile = document.getElementById('end-photo').files[0];
-        let end_photo_url = null;
-        if (photoFile) end_photo_url = await uploadPhoto(photoFile);
         const notes = document.getElementById('end-notes').value;
+
+        let end_photo_url = null;
+        if (photoFile) {
+          end_photo_url = await uploadPhoto(photoFile);
+        }
 
         const { error } = await supabase.from('trips')
           .update({
@@ -141,8 +191,10 @@
           })
           .eq('id', currentTripId);
 
-        if (error) { alert('Erro: ' + error.message); } else {
-          alert('Viagem finalizada!');
+        if (error) {
+          alert('Erro ao finalizar viagem: ' + error.message);
+        } else {
+          alert('Viagem finalizada com sucesso!');
           currentTripId = null;
           renderDriverView();
         }
@@ -151,18 +203,34 @@
 
     async function loadHistory() {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: trips } = await supabase.from('trips')
+      if (!user) return;
+
+      const { data: trips, error } = await supabase
+        .from('trips')
         .select('*, vehicles(*)')
         .eq('user_id', user.id)
         .order('start_time', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar histórico:', error);
+        return;
+      }
+
       const historyDiv = document.getElementById('history-list');
+      if (!historyDiv) return;
+
+      if (trips.length === 0) {
+        historyDiv.innerHTML = '<p>Nenhuma viagem registada.</p>';
+        return;
+      }
+
       historyDiv.innerHTML = trips.map(t => `
         <div class="card">
-          <p><strong>${t.vehicles?.brand} ${t.vehicles?.model}</strong></p>
+          <p><strong>${t.vehicles?.brand} ${t.vehicles?.model} (${t.vehicles?.license_plate})</strong></p>
           <p>Início: ${new Date(t.start_time).toLocaleString()} - Km: ${t.start_km}</p>
           <p>Fim: ${t.end_time ? new Date(t.end_time).toLocaleString() + ' - Km: ' + t.end_km : 'Em andamento'}</p>
-          ${t.start_photo_url ? `<img src="${t.start_photo_url}" width="60">` : ''}
-          ${t.end_photo_url ? `<img src="${t.end_photo_url}" width="60">` : ''}
+          ${t.start_photo_url ? `<img src="${t.start_photo_url}" width="80">` : ''}
+          ${t.end_photo_url ? `<img src="${t.end_photo_url}" width="80">` : ''}
           <p>Notas: ${t.notes || '-'}</p>
         </div>
       `).join('');
