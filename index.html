@@ -19,20 +19,73 @@
     <p><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
   </div>
 
+  <!-- Carregar Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabaseClient.js"></script>
-  <script src="app.js"></script>
+
   <script>
-    (async () => {
-      const { data: { session }, error } = await window.supabase.auth.getSession();
-      if (session) {
-        console.log('Sessão ativa encontrada, redirecionando...');
-        await redirectBasedOnRole(session.user.id);
+    // ============================================
+    // CONFIGURAÇÃO DO SUPABASE
+    // ============================================
+    const SUPABASE_URL = "https://oaztprykumrbubqxjkmb.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRwcnlrdW1yYnVicXhqa21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzk2NzYsImV4cCI6MjA5Njg1NTY3Nn0.dywR3Xt1Dv4w5nR1tjKkNnW3_v9muGmgT8Tr4ug6jCk";
+    const EDGE_FUNCTION_URL = "https://oaztprykumrbubqxjkmb.supabase.co/functions/v1/manage-users";
+
+    // Criar cliente Supabase
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ============================================
+    // FUNÇÃO DE REDIRECIONAMENTO
+    // ============================================
+    async function redirectBasedOnRole(userId) {
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', userId)
+          .single();
+
+        if (error || !profile) {
+          console.error('Erro ao obter perfil:', error);
+          await supabase.auth.signOut();
+          window.location.href = 'index.html';
+          return;
+        }
+
+        if (profile.role === 'admin') {
+          window.location.href = 'admin.html';
+        } else if (profile.role === 'driver') {
+          window.location.href = 'driver.html';
+        } else {
+          alert('Perfil desconhecido.');
+          window.location.href = 'index.html';
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+        window.location.href = 'index.html';
+      }
+    }
+
+    // ============================================
+    // VERIFICAR SESSÃO ATIVA AO CARREGAR
+    // ============================================
+    (async function() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('Sessão ativa encontrada, a redirecionar...');
+          await redirectBasedOnRole(session.user.id);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar sessão:', err);
       }
     })();
 
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    // ============================================
+    // EVENTO DE LOGIN
+    // ============================================
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
+
       const loginId = document.getElementById('login-id').value.trim();
       const password = document.getElementById('password').value;
       const errorMsg = document.getElementById('error-msg');
@@ -40,18 +93,17 @@
 
       let email = loginId;
 
+      // Se não for email, obter email pelo username
       if (!loginId.includes('@')) {
         try {
-          console.log('A tentar obter email para username:', loginId);
-          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
-          
+          console.log('A obter email para username:', loginId);
+          const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+
           if (error) {
             console.error('Erro RPC:', error);
             errorMsg.textContent = 'Nome de utilizador não encontrado.';
             return;
           }
-
-          console.log('Resposta RPC:', data);
 
           if (!data) {
             errorMsg.textContent = 'Nome de utilizador não encontrado.';
@@ -68,8 +120,8 @@
       }
 
       console.log('A tentar login com email:', email);
-      const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
-      
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
       if (error) {
         console.error('Erro de login:', error);
         errorMsg.textContent = 'Erro: ' + error.message;
@@ -79,13 +131,16 @@
       }
     });
 
-    document.getElementById('forgot-password').addEventListener('click', async (e) => {
+    // ============================================
+    // RECUPERAR PASSWORD
+    // ============================================
+    document.getElementById('forgot-password').addEventListener('click', async function(e) {
       e.preventDefault();
       const loginId = document.getElementById('login-id').value.trim();
       let email = loginId;
 
       if (!loginId.includes('@')) {
-        const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+        const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
         if (error || !data) {
           alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
           return;
@@ -93,9 +148,10 @@
         email = data;
       }
 
-      const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/index.html',
       });
+
       if (error) {
         alert('Erro: ' + error.message);
       } else {
