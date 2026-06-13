@@ -39,15 +39,26 @@
       errorMsg.textContent = '';
 
       let email = loginId;
+
       // Se não for email, assume username e obtém o email via RPC
       if (!loginId.includes('@')) {
         try {
           const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
-          if (error || !data) {
+          if (error) {
             errorMsg.textContent = 'Nome de utilizador não encontrado.';
+            console.error('Erro RPC:', error);
             return;
           }
-          email = data; // a função retorna o email diretamente
+          // Normalizar o resultado (pode vir como string ou array)
+          if (Array.isArray(data)) {
+            if (data.length === 0 || !data[0]) {
+              errorMsg.textContent = 'Nome de utilizador não encontrado.';
+              return;
+            }
+            email = data[0];
+          } else {
+            email = data;
+          }
         } catch (err) {
           errorMsg.textContent = 'Erro ao procurar utilizador.';
           console.error(err);
@@ -67,14 +78,21 @@
       e.preventDefault();
       const loginId = document.getElementById('login-id').value.trim();
       let email = loginId;
+
       if (!loginId.includes('@')) {
-        const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
-        if (error || !data) {
-          alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
+        try {
+          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+          if (error || !data) {
+            alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
+            return;
+          }
+          email = Array.isArray(data) ? data[0] : data;
+        } catch (err) {
+          alert('Erro ao procurar utilizador.');
           return;
         }
-        email = data;
       }
+
       const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/index.html',
       });
