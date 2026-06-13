@@ -1,4 +1,4 @@
-// Compressão de imagem e upload (inalterado)
+// Compressão de imagem
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,30 +38,33 @@ function compressImage(file) {
   });
 }
 
+// Upload de foto
 async function uploadPhoto(file) {
   if (!file) return null;
-  const compressed = await compressImage(file);
-  const filePath = `uploads/${compressed.name}`;
-  const { data, error } = await supabase.storage
-    .from('fleet-photos')
-    .upload(filePath, compressed, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-  if (error) {
-    console.error('Erro no upload:', error.message);
-    alert('Erro ao enviar foto: ' + error.message);
+  try {
+    const compressed = await compressImage(file);
+    const filePath = `uploads/${compressed.name}`;
+    const { data, error } = await window.supabase.storage
+      .from('fleet-photos')
+      .upload(filePath, compressed, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+    if (error) throw error;
+    const { data: urlData } = window.supabase.storage
+      .from('fleet-photos')
+      .getPublicUrl(filePath);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error('Erro no upload:', err.message);
+    alert('Erro ao enviar foto: ' + err.message);
     return null;
   }
-  const { data: urlData } = supabase.storage
-    .from('fleet-photos')
-    .getPublicUrl(filePath);
-  return urlData.publicUrl;
 }
 
-// Função para chamar a Edge Function (admin)
+// Chamar Edge Function
 async function callEdgeFunction(action, payload, sessionToken) {
-  const res = await fetch(EDGE_FUNCTION_URL, {
+  const res = await fetch(window.EDGE_FUNCTION_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -72,35 +75,51 @@ async function callEdgeFunction(action, payload, sessionToken) {
   return res.json();
 }
 
-// Redirecionamento baseado no perfil (única definição)
+// Redirecionar com base no perfil
 async function redirectBasedOnRole(userId) {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await window.supabase
       .from('profiles')
       .select('role')
       .eq('user_id', userId)
       .single();
-    if (error || !profile) {
+
+    if (error) {
       console.error('Erro ao obter perfil:', error);
-      await supabase.auth.signOut();
+      await window.supabase.auth.signOut();
       window.location.href = 'index.html';
       return;
     }
+
+    if (!profile) {
+      console.error('Perfil não encontrado para user_id:', userId);
+      await window.supabase.auth.signOut();
+      alert('Perfil não encontrado. Contacta o administrador.');
+      window.location.href = 'index.html';
+      return;
+    }
+
     if (profile.role === 'admin') {
       window.location.href = 'admin.html';
-    } else {
+    } else if (profile.role === 'driver') {
       window.location.href = 'driver.html';
+    } else {
+      alert('Perfil desconhecido.');
+      window.location.href = 'index.html';
     }
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error('Erro no redirectBasedOnRole:', err);
     window.location.href = 'index.html';
   }
 }
 
-// Logout global
+// Logout
 function setupLogout(buttonId) {
-  document.getElementById(buttonId).addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    window.location.href = 'index.html';
-  });
+  const btn = document.getElementById(buttonId);
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      await window.supabase.auth.signOut();
+      window.location.href = 'index.html';
+    });
+  }
 }
