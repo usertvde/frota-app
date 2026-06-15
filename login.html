@@ -22,11 +22,21 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
+    // supabase is accessed via window.supabase (defined in supabaseClient.js)
+    if (!window.supabase) {
+      console.error('Supabase client not initialized. Please check supabaseClient.js');
+      window.location.href = 'index.html';
+    }
+
     // Se já estiver logado, redireciona
     (async () => {
-      const { data: { session } } = await window.supabase.auth.getSession();
-      if (session) {
-        redirectBasedOnRole(session.user.id);
+      try {
+        const { data: { session } } = await window.supabase.auth.getSession();
+        if (session) {
+          await redirectBasedOnRole(session.user.id);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar sessão:', err);
       }
     })();
 
@@ -35,32 +45,31 @@
       const loginId = document.getElementById('login-id').value.trim();
       const password = document.getElementById('password').value;
       let email = loginId;
-
-      // Se não for um email, assume que é um nome de utilizador e obtém o email associado
-      if (!loginId.includes('@')) {
-        try {
-          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
-          if (error || !data || data.length === 0) {
-            document.getElementById('error-msg').textContent = 'Nome de utilizador não encontrado.';
-            return;
-          }
-          email = data; // a função retorna o email diretamente
-        } catch (err) {
-          document.getElementById('error-msg').textContent = 'Erro ao procurar utilizador.';
-          return;
-        }
-      }
+      const errorMsg = document.getElementById('error-msg');
+      errorMsg.textContent = '';
 
       try {
+        // Se não for um email, assume que é um nome de utilizador e obtém o email associado
+        if (!loginId.includes('@')) {
+          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+          if (error || !data) {
+            errorMsg.textContent = 'Nome de utilizador não encontrado.';
+            console.error('Erro ao obter email por username:', error);
+            return;
+          }
+          email = data;
+        }
+
+        // Login com email e password
         const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          document.getElementById('error-msg').textContent = 'Erro de login: ' + error.message;
+          errorMsg.textContent = 'Erro de login: ' + error.message;
           console.error('Erro de autenticação:', error);
           return;
         }
         
         if (!data || !data.user) {
-          document.getElementById('error-msg').textContent = 'Erro: Resposta de login inválida';
+          errorMsg.textContent = 'Erro: Resposta de login inválida';
           console.error('Dados de login inválidos:', data);
           return;
         }
@@ -68,24 +77,47 @@
         console.log('Login bem-sucedido para usuário:', data.user.id);
         await redirectBasedOnRole(data.user.id);
       } catch (err) {
-        document.getElementById('error-msg').textContent = 'Erro inesperado: ' + err.message;
+        errorMsg.textContent = 'Erro inesperado: ' + err.message;
         console.error('Erro durante login:', err);
       }
     });
 
-    // Recuperação de password (usa email, então para o admin pedimos o email associado)
+    // Recuperação de password
     document.getElementById('forgot-password').addEventListener('click', async (e) => {
       e.preventDefault();
       const loginId = document.getElementById('login-id').value.trim();
       let email = loginId;
-      if (!loginId.includes('@')) {
-        const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
-        if (error || !data || data.length === 0) {
-          alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
-          return;
+
+      try {
+        if (!loginId.includes('@')) {
+          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
+          if (error || !data) {
+            alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
+            return;
+          }
+          email = data;
+        }
+
+        const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/login.html',
+        });
+
+        if (error) {
+          alert('Erro: ' + error.message);
+        } else {
+          alert('Email de recuperação enviado. Verifica a tua caixa de entrada.');
+        }
+      } catch (err) {
+        alert('Erro: ' + err.message);
+        console.error('Erro na recuperação de password:', err);
+      }
+    });
+
+    // Função para redirecionar com base no role
+    async function redirectBasedOnRole(userId) {
       try {
         console.log('Buscando perfil para user_id:', userId);
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await window.supabase
           .from('profiles')
           .select('role')
           .eq('user_id', userId)
@@ -94,14 +126,14 @@
         if (error) {
           console.error('Erro ao obter perfil:', error);
           document.getElementById('error-msg').textContent = 'Erro ao obter perfil: ' + error.message;
-          await supabase.auth.signOut();
+          await window.supabase.auth.signOut();
           return;
         }
         
         if (!profile) {
           console.error('Perfil não encontrado para user_id:', userId);
           document.getElementById('error-msg').textContent = 'Perfil não encontrado. Contacta o administrador.';
-          await supabase.auth.signOut();
+          await window.supabase.auth.signOut();
           return;
         }
 
@@ -113,26 +145,12 @@
         } else {
           console.error('Role desconhecida:', profile.role);
           document.getElementById('error-msg').textContent = 'Role de utilizador desconhecida.';
-          await supabase.auth.signOut();
+          await window.supabase.auth.signOut();
         }
       } catch (err) {
         console.error('Erro durante redirecionamento:', err);
         document.getElementById('error-msg').textContent = 'Erro: ' + err.message;
-        await supabase.auth.signOut()d) {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
-      if (error || !profile) {
-        await supabase.auth.signOut();
-        alert('Perfil não encontrado.');
-        return;
-      }
-      if (profile.role === 'admin') {
-        window.location.href = 'admin.html';
-      } else {
-        window.location.href = 'driver.html';
+        await window.supabase.auth.signOut();
       }
     }
   </script>
