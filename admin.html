@@ -85,339 +85,281 @@
     </div>
   </div>
 
-  <!-- Scripts: ordem importante -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    // Verificação imediata da existência do supabase
-    if (!window.supabase) {
-      document.body.innerHTML = '<h1 style="color:red;">Erro: Supabase não carregou. Verifique o ficheiro supabaseClient.js ou a ligação à Internet.</h1>';
-      throw new Error('Supabase não encontrado');
-    }
-
-    const supabase = window.supabase;
-    let sessionToken = '';
-
-    console.log('admin.html iniciado. supabase:', typeof supabase);
-
-    // ---------- LISTENERS BÁSICOS (configurados imediatamente) ----------
-    function setupBaseListeners() {
-      // Logout
-      const logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-          console.log('Logout clicado');
-          await supabase.auth.signOut();
-          window.location.href = 'index.html';
-        });
-        console.log('Logout listener adicionado');
-      } else {
-        console.error('Botão logout não encontrado');
+    (function() {
+      // Usar sempre window.supabase
+      const supabase = window.supabase;
+      if (!supabase) {
+        document.body.innerHTML = '<h1 style="color:red;">Erro: Supabase não carregou.</h1>';
+        return;
       }
+      let sessionToken = '';
 
-      // Tabs
+      console.log('admin.html iniciado');
+
+      // ---------- LOGOUT ----------
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        console.log('Logout');
+        await supabase.auth.signOut();
+        window.location.href = 'index.html';
+      });
+
+      // ---------- TABS ----------
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
-          const panelId = `${tab.dataset.tab}-panel`;
-          const panel = document.getElementById(panelId);
-          if (panel) panel.classList.add('active');
-          console.log('Tab mudada para:', tab.dataset.tab);
+          const panelId = tab.dataset.tab + '-panel';
+          document.getElementById(panelId).classList.add('active');
+          console.log('Tab:', tab.dataset.tab);
           if (tab.dataset.tab === 'shifts') loadShiftsAndAvailability();
           if (tab.dataset.tab === 'reports') loadReportDropdowns();
         });
       });
-      console.log('Tabs configuradas');
-    }
 
-    // Chama os listeners básicos imediatamente (antes de verificar sessão)
-    setupBaseListeners();
+      // ---------- INICIALIZAÇÃO ----------
+      (async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error || !session) {
+            window.location.href = 'index.html';
+            return;
+          }
+          sessionToken = session.access_token;
 
-    // ---------- INICIALIZAÇÃO ASSÍNCRONA ----------
-    (async () => {
-      try {
-        // Verificar sessão
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          console.error('Erro ao obter sessão:', sessionError);
-          window.location.href = 'index.html';
-          return;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (!profile || profile.role !== 'admin') {
+            window.location.href = 'index.html';
+            return;
+          }
+
+          console.log('Admin autenticado');
+          setupForms();
+          loadVehicles();
+          loadDrivers();
+          loadShiftsAndAvailability();
+          loadAdminSettings();
+        } catch (err) {
+          console.error('Erro inicial:', err);
         }
-        if (!session) {
-          console.log('Sem sessão, redirecionando');
-          window.location.href = 'index.html';
-          return;
-        }
-        sessionToken = session.access_token;
-        console.log('Sessão obtida');
+      })();
 
-        // Verificar perfil
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .single();
+      // ---------- FUNÇÕES ----------
+      async function loadVehicles() {
+        const { data } = await supabase.from('vehicles').select('*').order('id');
+        document.getElementById('vehicles-list').innerHTML = (data || []).map(v => `
+          <div class="card">
+            ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
+            <strong>${v.brand} ${v.model}</strong> (${v.year}) - ${v.license_plate}
+            <button data-delete-vehicle="${v.id}">Apagar</button>
+          </div>
+        `).join('');
+        document.querySelectorAll('[data-delete-vehicle]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (confirm('Apagar?')) {
+              await supabase.from('vehicles').delete().eq('id', btn.dataset.deleteVehicle);
+              loadVehicles();
+            }
+          });
+        });
+      }
 
-        if (profileError) {
-          console.error('Erro ao obter perfil:', profileError);
-          alert('Erro ao verificar perfil: ' + profileError.message);
-          return;
-        }
-        if (!profile || profile.role !== 'admin') {
-          console.log('Não é admin');
-          window.location.href = 'index.html';
-          return;
-        }
-        console.log('Admin verificado');
+      async function loadDrivers() {
+        const { data } = await supabase.from('profiles').select('*').eq('role', 'driver');
+        document.getElementById('drivers-list').innerHTML = (data || []).map(d => `
+          <div class="card">
+            <strong>${d.full_name || '-'}</strong> (${d.email}) - ${d.access_number || '-'}
+            <button data-reset="${d.email}">Repor Pass</button>
+            <button data-delete="${d.user_id}">Apagar</button>
+          </div>
+        `).join('');
+        document.querySelectorAll('[data-reset]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const res = await fetch(window.EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+              body: JSON.stringify({ action: 'reset-password', email: btn.dataset.reset })
+            });
+            const result = await res.json();
+            alert(result.error ? 'Erro: ' + result.error : 'Email enviado');
+          });
+        });
+        document.querySelectorAll('[data-delete]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Apagar colaborador?')) return;
+            const res = await fetch(window.EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+              body: JSON.stringify({ action: 'delete-driver', userId: btn.dataset.delete })
+            });
+            await res.json();
+            loadDrivers();
+          });
+        });
+      }
 
-        // Configurar formulários (agora que sabemos que é admin)
-        setupForms();
+      async function loadShiftsAndAvailability() {
+        const { data: avail } = await supabase.from('driver_availability').select('*, profiles(full_name)');
+        document.getElementById('availability-list').innerHTML = (avail || []).map(a => `
+          <div class="card">${a.profiles?.full_name}: ${a.date} ${a.start_time}-${a.end_time}</div>
+        `).join('');
 
-        // Carregar dados (não bloqueiam os botões)
-        loadVehicles().catch(e => console.error('Erro ao carregar veículos:', e));
-        loadDrivers().catch(e => console.error('Erro ao carregar drivers:', e));
-        loadShiftsAndAvailability().catch(e => console.error('Erro ao carregar shifts:', e));
-        loadAdminSettings().catch(e => console.error('Erro ao carregar settings:', e));
+        const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*), profiles!driver_id(full_name)');
+        document.getElementById('shifts-list').innerHTML = (shifts || []).map(s => `
+          <div class="card">
+            ${s.profiles?.full_name} - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.license_plate})<br>
+            ${s.date} ${s.start_time}-${s.end_time} [${s.status}]
+            <button data-delete-shift="${s.id}">Remover</button>
+          </div>
+        `).join('');
+        document.querySelectorAll('[data-delete-shift]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (confirm('Remover?')) {
+              await supabase.from('shifts').delete().eq('id', btn.dataset.deleteShift);
+              loadShiftsAndAvailability();
+            }
+          });
+        });
 
-        console.log('Inicialização concluída');
-      } catch (err) {
-        console.error('Erro na inicialização:', err);
-        alert('Erro inicial: ' + err.message);
+        // Preencher selects
+        const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
+        document.getElementById('s-driver').innerHTML = (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+        const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model, license_plate');
+        document.getElementById('s-vehicle').innerHTML = (vehicles || []).map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
+      }
+
+      async function loadReportDropdowns() {
+        const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
+        document.getElementById('report-driver').innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+      }
+
+      async function loadAdminSettings() {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+        document.getElementById('admin-username').value = profile?.username || '';
+        document.getElementById('admin-email').value = user?.email || '';
+      }
+
+      function setupForms() {
+        document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const brand = document.getElementById('v-brand').value;
+          const model = document.getElementById('v-model').value;
+          const plate = document.getElementById('v-plate').value;
+          const year = document.getElementById('v-year').value;
+          const photoFile = document.getElementById('v-photo').files[0];
+          let photo_url = null;
+          if (photoFile) {
+            const compressed = await compressImage(photoFile);
+            const path = `uploads/${Date.now()}_${photoFile.name}`;
+            await supabase.storage.from('fleet-photos').upload(path, compressed);
+            const { data } = supabase.storage.from('fleet-photos').getPublicUrl(path);
+            photo_url = data.publicUrl;
+          }
+          await supabase.from('vehicles').insert({ brand, model, license_plate: plate, year: parseInt(year) || null, photo_url });
+          loadVehicles();
+          e.target.reset();
+        });
+
+        document.getElementById('driver-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const email = document.getElementById('d-email').value;
+          const password = document.getElementById('d-password').value;
+          const fullName = document.getElementById('d-name').value;
+          const accessNumber = document.getElementById('d-access-number').value;
+          const res = await fetch(window.EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+            body: JSON.stringify({ action: 'create-driver', email, password })
+          });
+          const result = await res.json();
+          if (result.error) { alert('Erro: ' + result.error); return; }
+          await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', result.userId);
+          loadDrivers();
+          e.target.reset();
+        });
+
+        document.getElementById('shift-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const driver_id = document.getElementById('s-driver').value;
+          const vehicle_id = document.getElementById('s-vehicle').value;
+          const date = document.getElementById('s-date').value;
+          const start_time = document.getElementById('s-start').value;
+          const end_time = document.getElementById('s-end').value;
+          await supabase.from('shifts').insert({ driver_id, vehicle_id: parseInt(vehicle_id), date, start_time, end_time });
+          loadShiftsAndAvailability();
+          e.target.reset();
+        });
+
+        document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const newUsername = document.getElementById('admin-username').value;
+          const pw1 = document.getElementById('admin-new-pw1').value;
+          const pw2 = document.getElementById('admin-new-pw2').value;
+          const newEmail = document.getElementById('admin-email').value;
+          const msg = document.getElementById('settings-msg');
+          if (pw1 && pw1 !== pw2) { msg.textContent = 'As palavras-passe não coincidem.'; return; }
+          if (newUsername) {
+            const user = (await supabase.auth.getUser()).data.user;
+            await supabase.from('profiles').update({ username: newUsername }).eq('user_id', user.id);
+          }
+          if (pw1) await supabase.auth.updateUser({ password: pw1 });
+          if (newEmail) await supabase.auth.updateUser({ email: newEmail });
+          msg.textContent = 'Definições guardadas.';
+        });
+
+        document.getElementById('generate-report').addEventListener('click', async () => {
+          const date = document.getElementById('report-date').value;
+          const driverId = document.getElementById('report-driver').value;
+          let query = supabase.from('shift_reports').select('*, shifts(*, vehicles(*), profiles!driver_id(full_name))');
+          if (date) query = query.eq('shifts.date', date);
+          if (driverId) query = query.eq('driver_id', driverId);
+          const { data } = await query;
+          let html = '<table><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Combustível (L)</th><th>Custo (€)</th><th>Faturado (€)</th><th>Notas</th></tr>';
+          (data || []).forEach(r => {
+            html += `<tr>
+              <td>${r.shifts?.date}</td><td>${r.shifts?.profiles?.full_name}</td><td>${r.shifts?.vehicles?.license_plate}</td>
+              <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
+              <td>${r.notes || ''}</td>
+            </tr>`;
+          });
+          html += '</table>';
+          document.getElementById('report-output').innerHTML = html;
+        });
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxWidth = 1200;
+              let width = img.width, height = img.height;
+              if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+              canvas.width = width; canvas.height = height;
+              canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+              canvas.toBlob(blob => {
+                if (!blob) reject(new Error('Falha'));
+                else resolve(new File([blob], file.name || 'foto.jpg', { type: 'image/jpeg' }));
+              }, 'image/jpeg', 0.7);
+            };
+          };
+          reader.onerror = reject;
+        });
       }
     })();
-
-    // ---------- FUNÇÕES DE DADOS ----------
-    async function loadVehicles() {
-      console.log('Carregando veículos...');
-      const { data, error } = await supabase.from('vehicles').select('*').order('id');
-      if (error) throw error;
-      document.getElementById('vehicles-list').innerHTML = (data || []).map(v => `
-        <div class="card">
-          ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
-          <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.license_plate}
-          <button class="delete-vehicle-btn" data-id="${v.id}">Apagar</button>
-        </div>
-      `).join('');
-      document.querySelectorAll('.delete-vehicle-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.target.dataset.id;
-          if (!confirm('Apagar veículo?')) return;
-          await supabase.from('vehicles').delete().eq('id', id);
-          loadVehicles();
-        });
-      });
-    }
-
-    async function loadDrivers() {
-      console.log('Carregando colaboradores...');
-      const { data, error } = await supabase.from('profiles').select('*').eq('role', 'driver');
-      if (error) throw error;
-      document.getElementById('drivers-list').innerHTML = (data || []).map(d => `
-        <div class="card">
-          <strong>${d.full_name || 'Sem nome'}</strong> (${d.email}) - Nº: ${d.access_number || '-'}
-          <button class="reset-pass-btn" data-email="${d.email}">Repor Pass</button>
-          <button class="delete-driver-btn" data-id="${d.user_id}">Apagar</button>
-        </div>
-      `).join('');
-      document.querySelectorAll('.reset-pass-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const email = e.target.dataset.email;
-          const res = await fetch(window.EDGE_FUNCTION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-            body: JSON.stringify({ action: 'reset-password', email })
-          });
-          const result = await res.json();
-          alert(result.error ? 'Erro: ' + result.error : 'Email enviado para ' + email);
-        });
-      });
-      document.querySelectorAll('.delete-driver-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const userId = e.target.dataset.id;
-          if (!confirm('Apagar colaborador?')) return;
-          const res = await fetch(window.EDGE_FUNCTION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-            body: JSON.stringify({ action: 'delete-driver', userId })
-          });
-          const result = await res.json();
-          if (result.error) alert('Erro: ' + result.error);
-          else loadDrivers();
-        });
-      });
-    }
-
-    async function loadShiftsAndAvailability() {
-      console.log('Carregando horários...');
-      const { data: avail } = await supabase.from('driver_availability').select('*, profiles(full_name)');
-      document.getElementById('availability-list').innerHTML = (avail || []).map(a => `
-        <div class="card">${a.profiles?.full_name}: ${a.date} das ${a.start_time} às ${a.end_time}</div>
-      `).join('');
-
-      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*), profiles!driver_id(full_name)');
-      document.getElementById('shifts-list').innerHTML = (shifts || []).map(s => `
-        <div class="card">
-          <strong>${s.profiles?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.license_plate})<br>
-          ${s.date} ${s.start_time}-${s.end_time} [${s.status}]
-          <button class="delete-shift-btn" data-id="${s.id}">Remover</button>
-        </div>
-      `).join('');
-      document.querySelectorAll('.delete-shift-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.target.dataset.id;
-          if (!confirm('Remover horário?')) return;
-          await supabase.from('shifts').delete().eq('id', id);
-          loadShiftsAndAvailability();
-        });
-      });
-
-      // Preencher selects do shift-form
-      const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
-      const selDriver = document.getElementById('s-driver');
-      if (selDriver) selDriver.innerHTML = (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
-
-      const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model, license_plate');
-      const selVehicle = document.getElementById('s-vehicle');
-      if (selVehicle) selVehicle.innerHTML = (vehicles || []).map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
-    }
-
-    async function loadReportDropdowns() {
-      const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
-      document.getElementById('report-driver').innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
-    }
-
-    async function loadAdminSettings() {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-      document.getElementById('admin-username').value = profile?.username || '';
-      document.getElementById('admin-email').value = user?.email || '';
-    }
-
-    // ---------- SETUP DE FORMULÁRIOS ----------
-    function setupForms() {
-      document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const brand = document.getElementById('v-brand').value;
-        const model = document.getElementById('v-model').value;
-        const plate = document.getElementById('v-plate').value;
-        const year = document.getElementById('v-year').value;
-        const photoFile = document.getElementById('v-photo').files[0];
-        let photo_url = null;
-        if (photoFile) {
-          const compressed = await compressImage(photoFile);
-          const path = `uploads/${Date.now()}_${photoFile.name}`;
-          await supabase.storage.from('fleet-photos').upload(path, compressed);
-          const { data } = supabase.storage.from('fleet-photos').getPublicUrl(path);
-          photo_url = data.publicUrl;
-        }
-        const { error } = await supabase.from('vehicles').insert({ brand, model, license_plate: plate, year: parseInt(year) || null, photo_url });
-        if (error) alert('Erro: ' + error.message);
-        else {
-          loadVehicles();
-          e.target.reset();
-        }
-      });
-
-      document.getElementById('driver-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('d-email').value;
-        const password = document.getElementById('d-password').value;
-        const fullName = document.getElementById('d-name').value;
-        const accessNumber = document.getElementById('d-access-number').value;
-        console.log('Criando colaborador...');
-        const res = await fetch(window.EDGE_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-          body: JSON.stringify({ action: 'create-driver', email, password })
-        });
-        const result = await res.json();
-        console.log('Resposta Edge Function:', result);
-        if (result.error) { alert('Erro: ' + result.error); return; }
-        await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', result.userId);
-        loadDrivers();
-        e.target.reset();
-        alert('Colaborador criado!');
-      });
-
-      document.getElementById('shift-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const driver_id = document.getElementById('s-driver').value;
-        const vehicle_id = document.getElementById('s-vehicle').value;
-        const date = document.getElementById('s-date').value;
-        const start_time = document.getElementById('s-start').value;
-        const end_time = document.getElementById('s-end').value;
-        const { error } = await supabase.from('shifts').insert({ driver_id, vehicle_id: parseInt(vehicle_id), date, start_time, end_time });
-        if (error) alert('Erro: ' + error.message);
-        else {
-          loadShiftsAndAvailability();
-          e.target.reset();
-        }
-      });
-
-      document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newUsername = document.getElementById('admin-username').value;
-        const pw1 = document.getElementById('admin-new-pw1').value;
-        const pw2 = document.getElementById('admin-new-pw2').value;
-        const newEmail = document.getElementById('admin-email').value;
-        const msg = document.getElementById('settings-msg');
-        if (pw1 && pw1 !== pw2) { msg.textContent = 'As palavras-passe não coincidem.'; return; }
-        if (newUsername) {
-          const user = (await supabase.auth.getUser()).data.user;
-          await supabase.from('profiles').update({ username: newUsername }).eq('user_id', user.id);
-        }
-        if (pw1) await supabase.auth.updateUser({ password: pw1 });
-        if (newEmail) await supabase.auth.updateUser({ email: newEmail });
-        msg.textContent = 'Definições guardadas.';
-      });
-
-      document.getElementById('generate-report').addEventListener('click', async () => {
-        const date = document.getElementById('report-date').value;
-        const driverId = document.getElementById('report-driver').value;
-        let query = supabase.from('shift_reports').select('*, shifts(*, vehicles(*), profiles!driver_id(full_name))');
-        if (date) query = query.eq('shifts.date', date);
-        if (driverId) query = query.eq('driver_id', driverId);
-        const { data } = await query;
-        let html = '<table><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Combustível (L)</th><th>Custo (€)</th><th>Faturado (€)</th><th>Notas</th></tr>';
-        (data || []).forEach(r => {
-          html += `<tr>
-            <td>${r.shifts?.date}</td>
-            <td>${r.shifts?.profiles?.full_name}</td>
-            <td>${r.shifts?.vehicles?.license_plate}</td>
-            <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
-            <td>${r.notes || ''}</td>
-          </tr>`;
-        });
-        html += '</table>';
-        document.getElementById('report-output').innerHTML = html;
-      });
-    }
-
-    function compressImage(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-          const img = new Image();
-          img.src = event.target.result;
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const maxWidth = 1200;
-            let width = img.width, height = img.height;
-            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-            canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            canvas.toBlob(blob => {
-              if (!blob) reject(new Error('Falha'));
-              else resolve(new File([blob], file.name || 'foto.jpg', { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.7);
-          };
-        };
-        reader.onerror = reject;
-      });
-    }
   </script>
 </body>
 </html>
