@@ -82,7 +82,7 @@ async function redirectBasedOnRole(userId) {
       .from('profiles')
       .select('role')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Erro ao obter perfil:', error);

@@ -350,7 +350,7 @@
       try {
         const { data: { user }, error: userError } = await window.supabase.auth.getUser();
         if (userError) throw userError;
-        const { data: profile, error: profileError } = await window.supabase.from('profiles').select('*').eq('user_id', user.id).single();
+        const { data: profile, error: profileError } = await window.supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
         if (profileError) throw profileError;
         document.getElementById('admin-username').value = profile?.username || '';
         document.getElementById('admin-email').value = user?.email || '';
