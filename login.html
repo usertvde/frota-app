@@ -22,11 +22,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    let supabase = window.supabase; // já definida globalmente
-
     // Se já estiver logado, redireciona
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await window.supabase.auth.getSession();
       if (session) {
         redirectBasedOnRole(session.user.id);
       }
@@ -41,7 +39,7 @@
       // Se não for um email, assume que é um nome de utilizador e obtém o email associado
       if (!loginId.includes('@')) {
         try {
-          const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+          const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
           if (error || !data || data.length === 0) {
             document.getElementById('error-msg').textContent = 'Nome de utilizador não encontrado.';
             return;
@@ -54,7 +52,7 @@
       }
 
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
         if (error) {
           document.getElementById('error-msg').textContent = 'Erro de login: ' + error.message;
           console.error('Erro de autenticação:', error);

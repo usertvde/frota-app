@@ -22,16 +22,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    let supabase = window.supabase;
-
     async function redirectBasedOnRole(userId) {
-      const { data: profile, error } = await supabase
+      const { data: profile, error } = await window.supabase
         .from('profiles')
         .select('role')
         .eq('user_id', userId)
         .single();
       if (error || !profile) {
-        await supabase.auth.signOut();
+        await window.supabase.auth.signOut();
         window.location.href = 'index.html';
         return;
       }
@@ -43,7 +41,7 @@
     }
 
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await window.supabase.auth.getSession();
       if (session) redirectBasedOnRole(session.user.id);
     })();
 
@@ -56,7 +54,7 @@
       let email = loginId;
 
       if (!loginId.includes('@')) {
-        const { data, error } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+        const { data, error } = await window.supabase.rpc('get_email_by_username', { p_username: loginId });
         if (error || !data) {
           errorMsg.textContent = 'Nome de utilizador não encontrado.';
           return;
@@ -64,7 +62,7 @@
         email = data;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await window.supabase.auth.signInWithPassword({ email, password });
       if (error) {
         errorMsg.textContent = 'Erro: ' + error.message;
       } else {
@@ -80,7 +78,7 @@
         const { data } = await supabase.rpc('get_email_by_username', { p_username: loginId });
         if (data) email = data;
       }
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/index.html',
       });
       if (error) alert('Erro: ' + error.message);

@@ -44,20 +44,24 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    let supabase = window.supabase;
+    // supabase is accessed via window.supabase (defined in supabaseClient.js)
+    if (!window.supabase) {
+      console.error('Supabase client not initialized. Please check supabaseClient.js');
+      window.location.href = 'index.html';
+    }
     let currentUser = null;
 
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await window.supabase.auth.getSession();
       if (!session) { window.location.href = 'index.html'; return; }
       currentUser = session.user;
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', currentUser.id).single();
+      const { data: profile } = await window.supabase.from('profiles').select('role').eq('user_id', currentUser.id).single();
       if (!profile || profile.role !== 'driver') { window.location.href = 'index.html'; return; }
 
       setupTabs();
       document.getElementById('logout-btn').addEventListener('click', async () => {
-        await supabase.auth.signOut();
+        await window.supabase.auth.signOut();
         window.location.href = 'index.html';
       });
 
@@ -83,7 +87,7 @@
 
     async function loadMyShifts() {
       const today = new Date().toISOString().split('T')[0];
-      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*)').eq('driver_id', currentUser.id).gte('date', today).order('date');
+      const { data: shifts } = await window.supabase.from('shifts').select('*, vehicles(*)').eq('driver_id', currentUser.id).gte('date', today).order('date');
       const container = document.getElementById('shifts-today');
       if (!shifts.length) {
         container.innerHTML = '<p>Sem horários atribuídos.</p>';
@@ -109,15 +113,15 @@
     }
 
     window.startShift = async (shiftId) => {
-      await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
+      await window.supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
       // Criar relatório vazio
-      await supabase.from('shift_reports').insert({ shift_id: shiftId, driver_id: currentUser.id });
+      await window.supabase.from('shift_reports').insert({ shift_id: shiftId, driver_id: currentUser.id });
       loadMyShifts();
     };
 
     window.endShift = async (shiftId) => {
       // Mostrar formulário de encerramento
-      const report = await supabase.from('shift_reports').select('*').eq('shift_id', shiftId).single();
+      const report = await window.supabase.from('shift_reports').select('*').eq('shift_id', shiftId).single();
       const formHtml = `
         <h3>Encerrar Turno</h3>
         <form id="end-shift-form">
@@ -147,11 +151,11 @@
         if (photoFile) {
           const compressed = await compressImage(photoFile);
           const path = `uploads/${Date.now()}_${photoFile.name}`;
-          await supabase.storage.from('fleet-photos').upload(path, compressed);
-          const { data } = supabase.storage.from('fleet-photos').getPublicUrl(path);
+          await window.supabase.storage.from('fleet-photos').upload(path, compressed);
+          const { data } = window.supabase.storage.from('fleet-photos').getPublicUrl(path);
           endPhotoUrl = data.publicUrl;
         }
-        await supabase.from('shift_reports').update({
+        await window.supabase.from('shift_reports').update({
           end_km: parseInt(endKm),
           fuel_litres: fuelLitres || null,
           fuel_cost: fuelCost || null,
@@ -161,14 +165,14 @@
           end_photo_url: endPhotoUrl,
           closed: true
         }).eq('shift_id', shiftId);
-        await supabase.from('shifts').update({ status: 'completed' }).eq('id', shiftId);
+        await window.supabase.from('shifts').update({ status: 'completed' }).eq('id', shiftId);
         loadMyShifts();
       });
     };
 
     // Disponibilidade
     async function loadAvailability() {
-      const { data } = await supabase.from('driver_availability').select('*').eq('driver_id', currentUser.id).order('date');
+      const { data } = await window.supabase.from('driver_availability').select('*').eq('driver_id', currentUser.id).order('date');
       document.getElementById('availability-list').innerHTML = data.map(a => `
         <div class="card">
           ${a.date} das ${a.start_time} às ${a.end_time}
@@ -178,7 +182,7 @@
     }
 
     window.deleteAvailability = async (id) => {
-      await supabase.from('driver_availability').delete().eq('id', id);
+      await window.supabase.from('driver_availability').delete().eq('id', id);
       loadAvailability();
     };
 
@@ -188,7 +192,7 @@
         const date = document.getElementById('av-date').value;
         const start = document.getElementById('av-start').value;
         const end = document.getElementById('av-end').value;
-        await supabase.from('driver_availability').insert({ driver_id: currentUser.id, date, start_time: start, end_time: end });
+        await window.supabase.from('driver_availability').insert({ driver_id: currentUser.id, date, start_time: start, end_time: end });
         loadAvailability();
         e.target.reset();
       });
@@ -196,7 +200,7 @@
 
     // Histórico
     async function loadHistory() {
-      const { data } = await supabase.from('shift_reports').select('*, shifts(*, vehicles(*))').eq('driver_id', currentUser.id).order('created_at', { ascending: false });
+      const { data } = await window.supabase.from('shift_reports').select('*, shifts(*, vehicles(*))').eq('driver_id', currentUser.id).order('created_at', { ascending: false });
       document.getElementById('history-list').innerHTML = data.map(r => `
         <div class="card">
           <strong>${r.shifts?.date} - ${r.shifts?.vehicles?.license_plate}</strong><br>

@@ -93,13 +93,16 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    let supabase = window.supabase;
-    let sessionToken = '';
+    // supabase is accessed via window.supabase (defined in supabaseClient.js)
+    if (!window.supabase) {
+      console.error('Supabase client not initialized. Please check supabaseClient.js');
+      window.location.href = 'index.html';
+    }
 
     // Inicialização
     (async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
         if (sessionError) {
           console.error('Erro ao obter sessão:', sessionError);
           window.location.href = 'index.html';
@@ -115,7 +118,7 @@
         console.log('Sessão encontrada para user:', session.user.id);
         sessionToken = session.access_token;
 
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await window.supabase
           .from('profiles')
           .select('role')
           .eq('user_id', session.user.id)
@@ -159,7 +162,7 @@
 
     function setupLogout() {
       document.getElementById('logout-btn').addEventListener('click', async () => {
-        await supabase.auth.signOut();
+        await window.supabase.auth.signOut();
         window.location.href = 'index.html';
       });
     }
