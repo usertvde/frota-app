@@ -85,47 +85,75 @@
     </div>
   </div>
 
+  <!-- Scripts: ordem importante -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    console.log('admin.html carregado');
+    // Verificação imediata da existência do supabase
+    if (!window.supabase) {
+      document.body.innerHTML = '<h1 style="color:red;">Erro: Supabase não carregou. Verifique o ficheiro supabaseClient.js ou a ligação à Internet.</h1>';
+      throw new Error('Supabase não encontrado');
+    }
+
     const supabase = window.supabase;
     let sessionToken = '';
 
-    // ------- LISTENERS IMEDIATOS (não dependem de dados) -------
-    function setupTabs() {
+    console.log('admin.html iniciado. supabase:', typeof supabase);
+
+    // ---------- LISTENERS BÁSICOS (configurados imediatamente) ----------
+    function setupBaseListeners() {
+      // Logout
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          console.log('Logout clicado');
+          await supabase.auth.signOut();
+          window.location.href = 'index.html';
+        });
+        console.log('Logout listener adicionado');
+      } else {
+        console.error('Botão logout não encontrado');
+      }
+
+      // Tabs
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
-          document.getElementById(`${tab.dataset.tab}-panel`).classList.add('active');
-          console.log('Tab clicada:', tab.dataset.tab);
+          const panelId = `${tab.dataset.tab}-panel`;
+          const panel = document.getElementById(panelId);
+          if (panel) panel.classList.add('active');
+          console.log('Tab mudada para:', tab.dataset.tab);
           if (tab.dataset.tab === 'shifts') loadShiftsAndAvailability();
           if (tab.dataset.tab === 'reports') loadReportDropdowns();
         });
       });
+      console.log('Tabs configuradas');
     }
 
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      window.location.href = 'index.html';
-    });
+    // Chama os listeners básicos imediatamente (antes de verificar sessão)
+    setupBaseListeners();
 
-    // ------- INICIALIZAÇÃO -------
+    // ---------- INICIALIZAÇÃO ASSÍNCRONA ----------
     (async () => {
       try {
-        console.log('Verificando sessão...');
-        const { data: { session } } = await supabase.auth.getSession();
+        // Verificar sessão
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Erro ao obter sessão:', sessionError);
+          window.location.href = 'index.html';
+          return;
+        }
         if (!session) {
           console.log('Sem sessão, redirecionando');
           window.location.href = 'index.html';
           return;
         }
         sessionToken = session.access_token;
-        console.log('Sessão ok:', session.user.id);
+        console.log('Sessão obtida');
 
-        console.log('Obtendo perfil...');
+        // Verificar perfil
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
@@ -133,35 +161,34 @@
           .single();
 
         if (profileError) {
-          console.error('Erro perfil:', profileError);
+          console.error('Erro ao obter perfil:', profileError);
           alert('Erro ao verificar perfil: ' + profileError.message);
           return;
         }
         if (!profile || profile.role !== 'admin') {
-          console.log('Não é admin, redirecionando');
+          console.log('Não é admin');
           window.location.href = 'index.html';
           return;
         }
-        console.log('Admin confirmado');
+        console.log('Admin verificado');
 
-        // Configurar tabs e forms imediatamente
-        setupTabs();
+        // Configurar formulários (agora que sabemos que é admin)
         setupForms();
 
         // Carregar dados (não bloqueiam os botões)
-        loadVehicles().catch(e => console.error('Falha ao carregar veículos:', e));
-        loadDrivers().catch(e => console.error('Falha ao carregar drivers:', e));
-        loadShiftsAndAvailability().catch(e => console.error('Falha ao carregar shifts:', e));
-        loadAdminSettings().catch(e => console.error('Falha ao carregar settings:', e));
+        loadVehicles().catch(e => console.error('Erro ao carregar veículos:', e));
+        loadDrivers().catch(e => console.error('Erro ao carregar drivers:', e));
+        loadShiftsAndAvailability().catch(e => console.error('Erro ao carregar shifts:', e));
+        loadAdminSettings().catch(e => console.error('Erro ao carregar settings:', e));
 
-        console.log('Painel inicializado');
+        console.log('Inicialização concluída');
       } catch (err) {
         console.error('Erro na inicialização:', err);
         alert('Erro inicial: ' + err.message);
       }
     })();
 
-    // ------- FUNÇÕES DE DADOS -------
+    // ---------- FUNÇÕES DE DADOS ----------
     async function loadVehicles() {
       console.log('Carregando veículos...');
       const { data, error } = await supabase.from('vehicles').select('*').order('id');
@@ -173,7 +200,6 @@
           <button class="delete-vehicle-btn" data-id="${v.id}">Apagar</button>
         </div>
       `).join('');
-      // Adicionar event listeners aos botões de apagar
       document.querySelectorAll('.delete-vehicle-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const id = e.target.dataset.id;
@@ -182,7 +208,6 @@
           loadVehicles();
         });
       });
-      console.log('Veículos carregados:', data?.length || 0);
     }
 
     async function loadDrivers() {
@@ -196,7 +221,6 @@
           <button class="delete-driver-btn" data-id="${d.user_id}">Apagar</button>
         </div>
       `).join('');
-      // Event listeners
       document.querySelectorAll('.reset-pass-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const email = e.target.dataset.email;
@@ -223,7 +247,6 @@
           else loadDrivers();
         });
       });
-      console.log('Colaboradores carregados:', data?.length || 0);
     }
 
     async function loadShiftsAndAvailability() {
@@ -258,7 +281,6 @@
       const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model, license_plate');
       const selVehicle = document.getElementById('s-vehicle');
       if (selVehicle) selVehicle.innerHTML = (vehicles || []).map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
-      console.log('Horários carregados');
     }
 
     async function loadReportDropdowns() {
@@ -273,7 +295,7 @@
       document.getElementById('admin-email').value = user?.email || '';
     }
 
-    // ------- SETUP DE FORMULÁRIOS -------
+    // ---------- SETUP DE FORMULÁRIOS ----------
     function setupForms() {
       document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
         e.preventDefault();

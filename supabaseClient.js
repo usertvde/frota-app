@@ -5,4 +5,4 @@ const EDGE_FUNCTION_URL = "https://oaztprykumrbubqxjkmb.supabase.co/functions/v1
 window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.EDGE_FUNCTION_URL = EDGE_FUNCTION_URL;
 
-console.log('Supabase client initialized with Edge Function URL:', window.EDGE_FUNCTION_URL);
+console.log('supabaseClient carregado. Edge URL:', EDGE_FUNCTION_URL);
