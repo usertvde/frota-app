@@ -22,7 +22,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    const supabase = window.supabase;
+    let supabase = window.supabase;
 
     async function redirectBasedOnRole(userId) {
       const { data: profile, error } = await supabase

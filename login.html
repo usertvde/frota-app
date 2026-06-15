@@ -22,7 +22,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    const supabase = window.supabase; // já definida globalmente
+    let supabase = window.supabase; // já definida globalmente
 
     // Se já estiver logado, redireciona
     (async () => {
