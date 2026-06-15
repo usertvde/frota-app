@@ -25,45 +25,26 @@ Quando o Supabase tenta verificar a política, ele tenta:
 
 ## ✅ SOLUÇÃO RÁPIDA (5 minutos)
 
-### Passo 1: Limpar o Database
+### Passo 1: Limpar o Database Completamente
 
-1. Abra [Supabase Dashboard](https://supabase.com)
-2. Vá para **SQL Editor** → **New Query**
-3. **Cole este script para limpar:**
-
-```sql
--- Desabilitar RLS temporariamente
-ALTER TABLE IF EXISTS public.shift_reports DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.shifts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.driver_availability DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.vehicles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.profiles DISABLE ROW LEVEL SECURITY;
-
--- Eliminar trigger e funções
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
-DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
-DROP FUNCTION IF EXISTS public.get_email_by_username(text) CASCADE;
-
--- Eliminar tabelas
-DROP TABLE IF EXISTS public.shift_reports CASCADE;
-DROP TABLE IF EXISTS public.shifts CASCADE;
-DROP TABLE IF EXISTS public.driver_availability CASCADE;
-DROP TABLE IF EXISTS public.vehicles CASCADE;
-DROP TABLE IF EXISTS public.profiles CASCADE;
-```
-
-4. Clique em **Run**
+1. Abra [Supabase Dashboard](https://supabase.com) → Seu Projeto → **SQL Editor**
+2. Clique em **"New Query"**
+3. **Cole este script de limpeza:**
+   - Abra o ficheiro `database-cleanup.sql` (novo ficheiro)
+   - Copie TODO o conteúdo
+   - Cole no editor SQL do Supabase
+4. Clique em **"Run"**
+5. ✅ Tudo foi eliminado (tabelas, triggers, políticas, etc.)
 
 ### Passo 2: Executar o Script Novo (SEM RECURSÃO)
 
 1. Abra o ficheiro **`database-simple-setup.sql`** no seu editor
-2. Copie **TODO** o conteúdo
-3. Volte ao Supabase SQL Editor
-4. Clique em **New Query** (outra query)
-5. Cole o conteúdo completo
-6. Clique em **Run**
+2. Copie **TODO** o conteúdo (está corrigido agora - profiles SEM RLS)
+3. Volte ao **Supabase SQL Editor** → Clique em **"New Query"**
+4. Cole o conteúdo completo
+5. Clique em **"Run"**
 
-✅ **Pronto!** O database foi recriado sem erros de recursão.
+✅ **Pronto!** O database foi recriado SEM erros de recursão.
 
 ### Passo 3: Recriar o Utilizador Admin
 

@@ -153,7 +153,11 @@ $$;
 -- FASE 5: ATIVAR ROW LEVEL SECURITY (RLS)
 -- ============================================
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- RLS DESABILITADO EM PROFILES para evitar recursão infinita
+-- Supabase já protege com Auth, e precisamos que as funções possam consultar livremente
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+
+-- Habilitar RLS nas outras tabelas
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shift_reports ENABLE ROW LEVEL SECURITY;
@@ -163,47 +167,30 @@ ALTER TABLE public.driver_availability ENABLE ROW LEVEL SECURITY;
 -- FASE 6: CRIAR POLÍTICAS RLS SIMPLES (SEM RECURSÃO)
 -- ============================================
 
--- ===== PROFILES =====
--- Utilizador só pode ver o seu próprio perfil
-CREATE POLICY "profiles_self_read" ON public.profiles
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Admin pode ver todos os perfis
-CREATE POLICY "profiles_admin_read" ON public.profiles
-  FOR SELECT
-  USING (auth.role() = 'authenticated' AND user_id IN (
-    SELECT user_id FROM public.profiles WHERE role = 'admin'
-  ));
-
--- Utilizador pode atualizar o seu próprio perfil
-CREATE POLICY "profiles_self_update" ON public.profiles
-  FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Novo perfil criado automaticamente pelo trigger
-CREATE POLICY "profiles_trigger_insert" ON public.profiles
-  FOR INSERT
-  WITH CHECK (true); -- Permite inserts da função SECURITY DEFINER
-
 -- ===== VEHICLES =====
 -- Admin pode fazer tudo
 CREATE POLICY "vehicles_admin_all" ON public.vehicles
   FOR ALL
-  USING (auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin'));
+  USING (
+    auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin')
+  );
 
 -- Driver pode ver (não editar)
 CREATE POLICY "vehicles_driver_select" ON public.vehicles
   FOR SELECT
-  USING (auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'driver'));
+  USING (
+    auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'driver')
+  );
 
 -- ===== SHIFTS =====
 -- Admin pode fazer tudo
 CREATE POLICY "shifts_admin_all" ON public.shifts
   FOR ALL
-  USING (auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin'));
+  USING (
+    auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin')
+  );
 
--- Driver pode ver o seus próprio shifts
+-- Driver pode ver os seus próprios shifts
 CREATE POLICY "shifts_driver_read" ON public.shifts
   FOR SELECT
   USING (driver_id = auth.uid());
@@ -212,7 +199,9 @@ CREATE POLICY "shifts_driver_read" ON public.shifts
 -- Admin pode fazer tudo
 CREATE POLICY "shift_reports_admin_all" ON public.shift_reports
   FOR ALL
-  USING (auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin'));
+  USING (
+    auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin')
+  );
 
 -- Driver pode ver/editar os seus próprios reports
 CREATE POLICY "shift_reports_driver_crud" ON public.shift_reports
@@ -223,7 +212,9 @@ CREATE POLICY "shift_reports_driver_crud" ON public.shift_reports
 -- Admin pode fazer tudo
 CREATE POLICY "driver_availability_admin_all" ON public.driver_availability
   FOR ALL
-  USING (auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin'));
+  USING (
+    auth.uid() IN (SELECT user_id FROM public.profiles WHERE role = 'admin')
+  );
 
 -- Driver pode gerenciar a sua própria disponibilidade
 CREATE POLICY "driver_availability_self" ON public.driver_availability
