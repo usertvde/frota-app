@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin - Gestão de Frota</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <div class="container">
+  <div class="container admin-container">
     <div class="header">
-      <h1>🔧 Painel Admin</h1>
-      <button id="logout-btn">Terminar Sessão</button>
+      <h1>🔧 Painel Administrador</h1>
+      <button id="logout-btn">Sair</button>
     </div>
 
     <div class="tabs">
       <button class="tab active" data-tab="vehicles">Veículos</button>
-      <button class="tab" data-tab="drivers">Motoristas</button>
-      <button class="tab" data-tab="trips">Viagens</button>
-      <button class="tab" data-tab="password">Alterar Password</button>
+      <button class="tab" data-tab="drivers">Colaboradores</button>
+      <button class="tab" data-tab="shifts">Horários</button>
+      <button class="tab" data-tab="reports">Relatórios</button>
+      <button class="tab" data-tab="settings">Definições</button>
     </div>
 
-    <!-- Painel de Veículos -->
+    <!-- Painel Veículos -->
     <div id="vehicles-panel" class="panel active">
       <h2>Gestão de Veículos</h2>
       <form id="vehicle-form">
@@ -29,90 +29,97 @@
         <input type="text" id="v-model" placeholder="Modelo" required>
         <input type="text" id="v-plate" placeholder="Matrícula" required>
         <input type="number" id="v-year" placeholder="Ano">
-        <label>Foto do veículo: <input type="file" id="v-photo" accept="image/*"></label>
-        <button type="submit">Adicionar</button>
+        <label>Foto: <input type="file" id="v-photo" accept="image/*"></label>
+        <button type="submit">Adicionar Veículo</button>
       </form>
       <div id="vehicles-list"></div>
     </div>
 
-    <!-- Painel de Motoristas -->
+    <!-- Painel Colaboradores -->
     <div id="drivers-panel" class="panel">
-      <h2>Gestão de Motoristas</h2>
+      <h2>Gestão de Colaboradores</h2>
       <form id="driver-form">
-        <input type="email" id="d-email" placeholder="Email do motorista" required>
+        <input type="email" id="d-email" placeholder="Email" required>
         <input type="password" id="d-password" placeholder="Palavra-passe temporária" required>
         <input type="text" id="d-name" placeholder="Nome completo">
-        <button type="submit">Criar Motorista</button>
+        <input type="text" id="d-access-number" placeholder="Nº de acesso (4 dígitos)">
+        <button type="submit">Criar Colaborador</button>
       </form>
       <div id="drivers-list"></div>
     </div>
 
-    <!-- Painel de Viagens (admin vê todas) -->
-    <div id="trips-panel" class="panel">
-      <h2>Todas as Viagens</h2>
-      <div>
-        <label>Filtrar por data: <input type="date" id="filter-date"></label>
-        <label>Veículo: <select id="filter-vehicle"><option value="">Todos</option></select></label>
-        <label>Motorista: <select id="filter-driver"><option value="">Todos</option></select></label>
-        <button id="apply-filters">Filtrar</button>
-      </div>
-      <div id="trips-list"></div>
+    <!-- Painel Horários -->
+    <div id="shifts-panel" class="panel">
+      <h2>Horários de Trabalho</h2>
+      <form id="shift-form">
+        <label>Colaborador: <select id="s-driver" required></select></label>
+        <label>Veículo: <select id="s-vehicle" required></select></label>
+        <label>Data: <input type="date" id="s-date" required></label>
+        <label>Hora início: <input type="time" id="s-start" required></label>
+        <label>Hora fim: <input type="time" id="s-end" required></label>
+        <button type="submit">Criar Horário</button>
+      </form>
+      <h3>Disponibilidade dos Colaboradores</h3>
+      <div id="availability-list"></div>
+      <h3>Horários Criados</h3>
+      <div id="shifts-list"></div>
     </div>
 
-    <!-- Painel Alterar Password Admin -->
-    <div id="password-panel" class="panel">
-      <h2>Alterar a minha palavra-passe</h2>
-      <form id="change-password-form">
-        <input type="password" id="new-password1" placeholder="Nova palavra-passe" required>
-        <input type="password" id="new-password2" placeholder="Confirmar nova palavra-passe" required>
-        <button type="submit">Alterar</button>
+    <!-- Painel Relatórios -->
+    <div id="reports-panel" class="panel">
+      <h2>Relatórios de Turno</h2>
+      <div>
+        <label>Data: <input type="date" id="report-date"></label>
+        <label>Colaborador: <select id="report-driver"><option value="">Todos</option></select></label>
+        <button id="generate-report">Gerar Relatório</button>
+      </div>
+      <div id="report-output"></div>
+    </div>
+
+    <!-- Painel Definições -->
+    <div id="settings-panel" class="panel">
+      <h2>Definições do Administrador</h2>
+      <form id="admin-settings-form">
+        <label>Novo nome de utilizador: <input type="text" id="admin-username" placeholder="admin"></label>
+        <label>Nova palavra-passe: <input type="password" id="admin-new-pw1"></label>
+        <label>Confirmar palavra-passe: <input type="password" id="admin-new-pw2"></label>
+        <label>Email de recuperação: <input type="email" id="admin-email"></label>
+        <button type="submit">Guardar Alterações</button>
       </form>
-      <p id="change-pwd-msg"></p>
-      <hr>
-      <h3>Recuperar palavra-passe</h3>
-      <p>Email de recuperação: <span id="admin-email"></span> <button id="change-recovery-email">Alterar</button></p>
-      <button id="send-reset-email">Enviar link de recuperação para o meu email</button>
+      <p id="settings-msg"></p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
-  <script src="app.js"></script>
   <script>
+    const supabase = window.supabase;
     let sessionToken = '';
 
+    // Inicialização
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = 'index.html';
-        return;
-      }
+      if (!session) { window.location.href = 'index.html'; return; }
       sessionToken = session.access_token;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', session.user.id)
-        .single();
-      if (!profile || profile.role !== 'admin') {
-        alert('Acesso negado');
-        window.location.href = 'index.html';
-        return;
-      }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', session.user.id).single();
+      if (!profile || profile.role !== 'admin') { window.location.href = 'index.html'; return; }
 
-      setupLogout('logout-btn');
       setupTabs();
+      setupLogout();
       loadVehicles();
       loadDrivers();
-      loadTrips();
-      loadAdminEmail();
-      setupVehicleForm();
-      setupDriverForm();
-      setupChangePassword();
-      setupFilters();
-      setupRecovery();
+      loadShiftsAndAvailability();
+      setupForms();
+      loadAdminSettings();
     })();
+
+    function setupLogout() {
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        window.location.href = 'index.html';
+      });
+    }
 
     function setupTabs() {
       document.querySelectorAll('.tab').forEach(tab => {
@@ -121,39 +128,155 @@
           document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
           document.getElementById(`${tab.dataset.tab}-panel`).classList.add('active');
-          if (tab.dataset.tab === 'trips') loadTrips();
+          if (tab.dataset.tab === 'shifts') loadShiftsAndAvailability();
+          if (tab.dataset.tab === 'reports') loadReportDropdowns();
         });
       });
     }
 
+    // ---------- VEÍCULOS ----------
     async function loadVehicles() {
-      const { data, error } = await supabase.from('vehicles').select('*').order('id', { ascending: false });
-      if (error) {
-        console.error('Erro ao carregar veículos:', error);
-        return;
-      }
-      const list = document.getElementById('vehicles-list');
-      list.innerHTML = data.map(v => `
+      const { data } = await supabase.from('vehicles').select('*').order('id');
+      document.getElementById('vehicles-list').innerHTML = data.map(v => `
         <div class="card">
-          ${v.photo_url ? `<img src="${v.photo_url}" alt="Foto" style="max-width:150px;">` : ''}
-          <p><strong>${v.brand} ${v.model}</strong> (${v.year})</p>
-          <p>Matrícula: ${v.license_plate}</p>
+          ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
+          <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.license_plate}
           <button onclick="deleteVehicle(${v.id})">Apagar</button>
         </div>
       `).join('');
     }
 
-    window.deleteVehicle = async function(id) {
-      if (!confirm('Apagar este veículo?')) return;
-      const { error } = await supabase.from('vehicles').delete().eq('id', id);
-      if (error) {
-        alert('Erro ao apagar: ' + error.message);
-      } else {
-        loadVehicles();
-      }
+    window.deleteVehicle = async (id) => {
+      if (!confirm('Apagar veículo?')) return;
+      await supabase.from('vehicles').delete().eq('id', id);
+      loadVehicles();
     };
 
-    function setupVehicleForm() {
+    // ---------- COLABORADORES ----------
+    async function loadDrivers() {
+      const { data } = await supabase.from('profiles').select('*').eq('role', 'driver');
+      document.getElementById('drivers-list').innerHTML = data.map(d => `
+        <div class="card">
+          <strong>${d.full_name || 'Sem nome'}</strong> (${d.email}) - Nº: ${d.access_number || '-'}
+          <button onclick="resetDriverPassword('${d.email}')">Repor Pass</button>
+          <button onclick="deleteDriver('${d.user_id}')">Apagar</button>
+        </div>
+      `).join('');
+    }
+
+    window.resetDriverPassword = async (email) => {
+      const res = await fetch(window.EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ action: 'reset-password', email })
+      });
+      const result = await res.json();
+      alert(result.error ? 'Erro: ' + result.error : 'Email enviado para ' + email);
+    };
+
+    window.deleteDriver = async (userId) => {
+      if (!confirm('Apagar colaborador?')) return;
+      const res = await fetch(window.EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+        body: JSON.stringify({ action: 'delete-driver', userId })
+      });
+      loadDrivers();
+    };
+
+    // ---------- HORÁRIOS E DISPONIBILIDADE ----------
+    async function loadShiftsAndAvailability() {
+      // Disponibilidade
+      const { data: avail } = await supabase.from('driver_availability').select('*, profiles(full_name)');
+      document.getElementById('availability-list').innerHTML = avail.map(a => `
+        <div class="card">
+          ${a.profiles?.full_name}: ${a.date} das ${a.start_time} às ${a.end_time}
+        </div>
+      `).join('');
+
+      // Horários criados
+      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(brand, model, license_plate), profiles!shifts_driver_id_fkey(full_name)');
+      document.getElementById('shifts-list').innerHTML = shifts.map(s => `
+        <div class="card">
+          <strong>${s.profiles?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.license_plate})<br>
+          ${s.date} ${s.start_time}-${s.end_time} [${s.status}]
+          <button onclick="deleteShift(${s.id})">Remover</button>
+        </div>
+      `).join('');
+    }
+
+    window.deleteShift = async (id) => {
+      if (!confirm('Remover horário?')) return;
+      await supabase.from('shifts').delete().eq('id', id);
+      loadShiftsAndAvailability();
+    };
+
+    // ---------- RELATÓRIOS ----------
+    async function loadReportDropdowns() {
+      const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
+      const sel = document.getElementById('report-driver');
+      sel.innerHTML = '<option value="">Todos</option>' + drivers.map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+    }
+
+    document.getElementById('generate-report').addEventListener('click', async () => {
+      const date = document.getElementById('report-date').value;
+      const driverId = document.getElementById('report-driver').value;
+      let query = supabase.from('shift_reports').select('*, shifts(*, vehicles(*), profiles!shifts_driver_id_fkey(full_name))');
+      if (date) query = query.eq('shifts.date', date);
+      if (driverId) query = query.eq('driver_id', driverId);
+      const { data } = await query;
+      let html = '<table><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Combustível (L)</th><th>Custo (€)</th><th>Faturado (€)</th><th>Notas</th></tr>';
+      data.forEach(r => {
+        html += `<tr>
+          <td>${r.shifts?.date}</td>
+          <td>${r.shifts?.profiles?.full_name}</td>
+          <td>${r.shifts?.vehicles?.license_plate}</td>
+          <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
+          <td>${r.notes || ''}</td>
+        </tr>`;
+      });
+      html += '</table>';
+      document.getElementById('report-output').innerHTML = html;
+    });
+
+    // ---------- DEFINIÇÕES ADMIN ----------
+    async function loadAdminSettings() {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
+      document.getElementById('admin-username').value = profile.username || '';
+      document.getElementById('admin-email').value = user.email || '';
+    }
+
+    document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newUsername = document.getElementById('admin-username').value;
+      const pw1 = document.getElementById('admin-new-pw1').value;
+      const pw2 = document.getElementById('admin-new-pw2').value;
+      const newEmail = document.getElementById('admin-email').value;
+      const msg = document.getElementById('settings-msg');
+
+      if (pw1 && pw1 !== pw2) {
+        msg.textContent = 'As palavras-passe não coincidem.';
+        return;
+      }
+
+      // Atualizar username
+      if (newUsername) {
+        await supabase.from('profiles').update({ username: newUsername }).eq('user_id', (await supabase.auth.getUser()).data.user.id);
+      }
+      // Atualizar password
+      if (pw1) {
+        await supabase.auth.updateUser({ password: pw1 });
+      }
+      // Atualizar email
+      if (newEmail) {
+        await supabase.auth.updateUser({ email: newEmail });
+      }
+      msg.textContent = 'Definições guardadas.';
+    });
+
+    // ---------- FORMULÁRIOS ----------
+    function setupForms() {
       document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const brand = document.getElementById('v-brand').value;
@@ -161,220 +284,74 @@
         const plate = document.getElementById('v-plate').value;
         const year = document.getElementById('v-year').value;
         const photoFile = document.getElementById('v-photo').files[0];
-
         let photo_url = null;
         if (photoFile) {
-          photo_url = await uploadPhoto(photoFile);
+          const compressed = await compressImage(photoFile);
+          const path = `uploads/${Date.now()}_${photoFile.name}`;
+          const { error } = await supabase.storage.from('fleet-photos').upload(path, compressed);
+          if (!error) {
+            const { data } = supabase.storage.from('fleet-photos').getPublicUrl(path);
+            photo_url = data.publicUrl;
+          }
         }
-
-        const { error } = await supabase.from('vehicles').insert({
-          brand,
-          model,
-          license_plate: plate,
-          year: parseInt(year) || null,
-          photo_url
-        });
-
-        if (error) {
-          alert('Erro: ' + error.message);
-        } else {
-          document.getElementById('vehicle-form').reset();
-          loadVehicles();
-        }
+        await supabase.from('vehicles').insert({ brand, model, license_plate: plate, year: parseInt(year) || null, photo_url });
+        loadVehicles();
+        e.target.reset();
       });
-    }
 
-    async function loadDrivers() {
-      const { data: drivers, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'driver')
-        .order('id', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao carregar motoristas:', error);
-        return;
-      }
-
-      const list = document.getElementById('drivers-list');
-      list.innerHTML = drivers.map(d => `
-        <div class="card">
-          <p><strong>${d.full_name || 'Sem nome'}</strong></p>
-          <p>Email: ${d.email || '-'}</p>
-          <button onclick="resetDriverPassword('${d.email}')">Repor password</button>
-          <button onclick="deleteDriver('${d.user_id}')">Apagar</button>
-        </div>
-      `).join('');
-    }
-
-    window.resetDriverPassword = async function(email) {
-      if (!email) {
-        alert('Este motorista não tem email associado.');
-        return;
-      }
-      const result = await callEdgeFunction('reset-password', { email }, sessionToken);
-      if (result.error) {
-        alert('Erro: ' + result.error);
-      } else {
-        alert('Email de redefinição enviado para ' + email);
-      }
-    };
-
-    window.deleteDriver = async function(userId) {
-      if (!confirm('Apagar este motorista? Isto remove o acesso permanentemente.')) return;
-      const result = await callEdgeFunction('delete-driver', { userId }, sessionToken);
-      if (result.error) {
-        alert('Erro: ' + result.error);
-      } else {
-        loadDrivers();
-      }
-    };
-
-    function setupDriverForm() {
       document.getElementById('driver-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('d-email').value;
         const password = document.getElementById('d-password').value;
         const fullName = document.getElementById('d-name').value;
-
-        const result = await callEdgeFunction('create-driver', { email, password }, sessionToken);
-        if (result.error) {
-          alert('Erro: ' + result.error);
-        } else {
-          // Atualizar o nome completo no perfil
-          if (fullName) {
-            await supabase.from('profiles').update({ full_name: fullName }).eq('user_id', result.userId);
-          }
-          alert('Motorista criado com sucesso!');
-          document.getElementById('driver-form').reset();
-          loadDrivers();
-        }
-      });
-    }
-
-    async function loadTrips(filters = {}) {
-      let query = supabase
-        .from('trips')
-        .select('*, vehicles(*), profiles!trips_user_id_fkey(full_name, email)')
-        .order('start_time', { ascending: false });
-
-      if (filters.date) {
-        query = query.gte('start_time', filters.date).lt('start_time', filters.date + 'T23:59:59');
-      }
-      if (filters.vehicle_id) {
-        query = query.eq('vehicle_id', filters.vehicle_id);
-      }
-      if (filters.driver_id) {
-        query = query.eq('user_id', filters.driver_id);
-      }
-
-      const { data: trips, error } = await query;
-
-      if (error) {
-        console.error('Erro ao carregar viagens:', error);
-        return;
-      }
-
-      const list = document.getElementById('trips-list');
-      list.innerHTML = trips.map(t => `
-        <div class="card">
-          <p><strong>${t.vehicles?.brand} ${t.vehicles?.model}</strong> (${t.vehicles?.license_plate})</p>
-          <p>Motorista: ${t.profiles?.full_name || t.profiles?.email || 'N/A'}</p>
-          <p>Início: ${new Date(t.start_time).toLocaleString()} - Km: ${t.start_km}</p>
-          <p>Fim: ${t.end_time ? new Date(t.end_time).toLocaleString() + ' - Km: ' + t.end_km : 'Em andamento'}</p>
-          ${t.start_photo_url ? `<img src="${t.start_photo_url}" width="80">` : ''}
-          ${t.end_photo_url ? `<img src="${t.end_photo_url}" width="80">` : ''}
-          <p>Notas: ${t.notes || '-'}</p>
-        </div>
-      `).join('');
-    }
-
-    function setupFilters() {
-      (async () => {
-        const { data: vehicles } = await supabase.from('vehicles').select('id, brand, model');
-        const vSelect = document.getElementById('filter-vehicle');
-        vSelect.innerHTML = '<option value="">Todos</option>' + vehicles.map(v => `<option value="${v.id}">${v.brand} ${v.model}</option>`).join('');
-
-        const { data: drivers } = await supabase.from('profiles').select('user_id, full_name, email').eq('role', 'driver');
-        const dSelect = document.getElementById('filter-driver');
-        dSelect.innerHTML = '<option value="">Todos</option>' + drivers.map(d => `<option value="${d.user_id}">${d.full_name || d.email}</option>`).join('');
-      })();
-
-      document.getElementById('apply-filters').addEventListener('click', () => {
-        const date = document.getElementById('filter-date').value;
-        const vehicle_id = document.getElementById('filter-vehicle').value;
-        const driver_id = document.getElementById('filter-driver').value;
-        loadTrips({ date, vehicle_id, driver_id });
-      });
-    }
-
-    async function loadAdminEmail() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        document.getElementById('admin-email').textContent = user.email;
-      }
-    }
-
-    function setupChangePassword() {
-      document.getElementById('change-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const pw1 = document.getElementById('new-password1').value;
-        const pw2 = document.getElementById('new-password2').value;
-        const msg = document.getElementById('change-pwd-msg');
-
-        if (pw1 !== pw2) {
-          msg.textContent = 'As palavras-passe não coincidem.';
-          msg.style.color = 'red';
-          return;
-        }
-
-        const { error } = await supabase.auth.updateUser({ password: pw1 });
-        if (error) {
-          msg.textContent = 'Erro: ' + error.message;
-          msg.style.color = 'red';
-        } else {
-          msg.textContent = 'Palavra-passe alterada com sucesso!';
-          msg.style.color = 'green';
-          document.getElementById('change-password-form').reset();
-        }
-      });
-
-      document.getElementById('change-recovery-email').addEventListener('click', async () => {
-        const newEmail = prompt('Novo email de recuperação:');
-        if (!newEmail) return;
-
-        const { error } = await supabase.auth.updateUser({ email: newEmail });
-        if (error) {
-          alert('Erro: ' + error.message);
-        } else {
-          alert('Email de recuperação alterado. Verifica a tua caixa de entrada para confirmar a mudança.');
-          loadAdminEmail();
-        }
-      });
-    }
-
-    function setupRecovery() {
-      document.getElementById('send-reset-email').addEventListener('click', async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          alert('Erro ao obter dados do utilizador.');
-          return;
-        }
-
-        if (!user.email) {
-          alert('Não tens email de recuperação definido. Define um email primeiro.');
-          return;
-        }
-
-        const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-          redirectTo: window.location.origin + '/index.html',
+        const accessNumber = document.getElementById('d-access-number').value;
+        const res = await fetch(window.EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ action: 'create-driver', email, password })
         });
+        const result = await res.json();
+        if (result.error) { alert('Erro: ' + result.error); return; }
+        await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', result.userId);
+        loadDrivers();
+        e.target.reset();
+      });
 
-        if (error) {
-          alert('Erro: ' + error.message);
-        } else {
-          alert('Email de recuperação enviado para ' + user.email);
-        }
+      document.getElementById('shift-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const driver_id = document.getElementById('s-driver').value;
+        const vehicle_id = document.getElementById('s-vehicle').value;
+        const date = document.getElementById('s-date').value;
+        const start_time = document.getElementById('s-start').value;
+        const end_time = document.getElementById('s-end').value;
+        await supabase.from('shifts').insert({ driver_id, vehicle_id: parseInt(vehicle_id), date, start_time, end_time });
+        loadShiftsAndAvailability();
+        e.target.reset();
+      });
+    }
+
+    // Função de compressão de imagem (utilitário)
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxWidth = 1200;
+            let width = img.width, height = img.height;
+            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            canvas.toBlob(blob => {
+              if (!blob) reject(new Error('Falha'));
+              else resolve(new File([blob], file.name || 'foto.jpg', { type: 'image/jpeg' }));
+            }, 'image/jpeg', 0.7);
+          };
+        };
+        reader.onerror = reject;
       });
     }
   </script>

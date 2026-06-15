@@ -1,10 +1,9 @@
 const CACHE_NAME = 'frota-v2';
 const urlsToCache = [
-  '/login.html',
+  '/index.html',
   '/admin.html',
   '/driver.html',
   '/style.css',
-  '/app.js',
   '/supabaseClient.js',
   '/manifest.json'
 ];
