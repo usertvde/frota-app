@@ -53,11 +53,25 @@
         }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        document.getElementById('error-msg').textContent = 'Erro: ' + error.message;
-      } else {
-        redirectBasedOnRole(data.user.id);
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          document.getElementById('error-msg').textContent = 'Erro de login: ' + error.message;
+          console.error('Erro de autenticação:', error);
+          return;
+        }
+        
+        if (!data || !data.user) {
+          document.getElementById('error-msg').textContent = 'Erro: Resposta de login inválida';
+          console.error('Dados de login inválidos:', data);
+          return;
+        }
+
+        console.log('Login bem-sucedido para usuário:', data.user.id);
+        await redirectBasedOnRole(data.user.id);
+      } catch (err) {
+        document.getElementById('error-msg').textContent = 'Erro inesperado: ' + err.message;
+        console.error('Erro durante login:', err);
       }
     });
 
@@ -71,20 +85,42 @@
         if (error || !data || data.length === 0) {
           alert('Introduz o nome de utilizador primeiro ou contacta o administrador.');
           return;
+      try {
+        console.log('Buscando perfil para user_id:', userId);
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', userId)
+          .single();
+        
+        if (error) {
+          console.error('Erro ao obter perfil:', error);
+          document.getElementById('error-msg').textContent = 'Erro ao obter perfil: ' + error.message;
+          await supabase.auth.signOut();
+          return;
         }
-        email = data;
-      }
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/login.html',
-      });
-      if (error) {
-        alert('Erro: ' + error.message);
-      } else {
-        alert('Email de recuperação enviado. Verifica a tua caixa de entrada.');
-      }
-    });
+        
+        if (!profile) {
+          console.error('Perfil não encontrado para user_id:', userId);
+          document.getElementById('error-msg').textContent = 'Perfil não encontrado. Contacta o administrador.';
+          await supabase.auth.signOut();
+          return;
+        }
 
-    async function redirectBasedOnRole(userId) {
+        console.log('Perfil encontrado:', profile);
+        if (profile.role === 'admin') {
+          window.location.href = 'admin.html';
+        } else if (profile.role === 'driver') {
+          window.location.href = 'driver.html';
+        } else {
+          console.error('Role desconhecida:', profile.role);
+          document.getElementById('error-msg').textContent = 'Role de utilizador desconhecida.';
+          await supabase.auth.signOut();
+        }
+      } catch (err) {
+        console.error('Erro durante redirecionamento:', err);
+        document.getElementById('error-msg').textContent = 'Erro: ' + err.message;
+        await supabase.auth.signOut()d) {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role')

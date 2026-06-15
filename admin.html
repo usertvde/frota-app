@@ -98,20 +98,63 @@
 
     // Inicialização
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { window.location.href = 'index.html'; return; }
-      sessionToken = session.access_token;
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Erro ao obter sessão:', sessionError);
+          window.location.href = 'index.html';
+          return;
+        }
+        
+        if (!session) {
+          console.log('Sessão não encontrada, redirecionando para login');
+          window.location.href = 'index.html';
+          return;
+        }
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', session.user.id).single();
-      if (!profile || profile.role !== 'admin') { window.location.href = 'index.html'; return; }
+        console.log('Sessão encontrada para user:', session.user.id);
+        sessionToken = session.access_token;
 
-      setupTabs();
-      setupLogout();
-      loadVehicles();
-      loadDrivers();
-      loadShiftsAndAvailability();
-      setupForms();
-      loadAdminSettings();
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Erro ao obter perfil:', profileError);
+          alert('Erro ao obter perfil: ' + profileError.message);
+          window.location.href = 'index.html';
+          return;
+        }
+
+        if (!profile) {
+          console.error('Perfil não encontrado para user_id:', session.user.id);
+          alert('Perfil não encontrado. Apenas administradores podem aceder.');
+          window.location.href = 'index.html';
+          return;
+        }
+
+        if (profile.role !== 'admin') {
+          console.error('Utilizador não é admin. Role:', profile.role);
+          alert('Acesso negado. Apenas administradores podem aceder.');
+          window.location.href = 'index.html';
+          return;
+        }
+
+        console.log('Acesso de admin confirmado. Carregando painel...');
+        setupTabs();
+        setupLogout();
+        loadVehicles();
+        loadDrivers();
+        loadShiftsAndAvailability();
+        setupForms();
+        loadAdminSettings();
+      } catch (err) {
+        console.error('Erro durante inicialização do admin:', err);
+        alert('Erro: ' + err.message);
+        window.location.href = 'index.html';
+      }
     })();
 
     function setupLogout() {
@@ -140,7 +183,7 @@
       document.getElementById('vehicles-list').innerHTML = data.map(v => `
         <div class="card">
           ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
-          <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.license_plate}
+          <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.plate || v.license_plate}
           <button onclick="deleteVehicle(${v.id})">Apagar</button>
         </div>
       `).join('');
@@ -195,10 +238,10 @@
       `).join('');
 
       // Horários criados
-      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(brand, model, license_plate), profiles!shifts_driver_id_fkey(full_name)');
+      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(brand, model, plate), drivers!shifts_driver_id_fkey(full_name)');
       document.getElementById('shifts-list').innerHTML = shifts.map(s => `
         <div class="card">
-          <strong>${s.profiles?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.license_plate})<br>
+          <strong>${s.drivers?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.plate})<br>
           ${s.date} ${s.start_time}-${s.end_time} [${s.status}]
           <button onclick="deleteShift(${s.id})">Remover</button>
         </div>
@@ -230,7 +273,7 @@
         html += `<tr>
           <td>${r.shifts?.date}</td>
           <td>${r.shifts?.profiles?.full_name}</td>
-          <td>${r.shifts?.vehicles?.license_plate}</td>
+          <td>${r.shifts?.vehicles?.plate}</td>
           <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
           <td>${r.notes || ''}</td>
         </tr>`;
@@ -294,7 +337,7 @@
             photo_url = data.publicUrl;
           }
         }
-        await supabase.from('vehicles').insert({ brand, model, license_plate: plate, year: parseInt(year) || null, photo_url });
+        await supabase.from('vehicles').insert({ brand, model, plate, year: parseInt(year) || null, photo_url });
         loadVehicles();
         e.target.reset();
       });
