@@ -1,6 +1,23 @@
 # 🔧 Guia de Configuração - Gestão de Frota
 
-## ⚠️ SE RECEBEU ERROS SQL ("relation does not exist")
+## 🚨 ERRO: "infinite recursion detected in policy for relation "profiles""
+
+Se receber este erro ao fazer login:
+
+```
+Erro ao obter perfil: infinite recursion detected in policy for relation "profiles"
+```
+
+**Solução rápida:**
+
+1. Vá para [Supabase Dashboard](https://supabase.com) → Seu Projeto → **SQL Editor**
+2. Execute o script **`database-simple-setup.sql`** (novo script SEM recursão)
+3. Copie TODO o conteúdo e execute no editor SQL
+4. ✅ Problema resolvido!
+
+---
+
+## ⚠️ SE RECEBEU OUTROS ERROS SQL ("relation does not exist")
 
 Se recebeu erros como:
 - "relation 'public.drivers' does not exist"
@@ -11,7 +28,7 @@ Se recebeu erros como:
 
 1. Vá para [Supabase Dashboard](https://supabase.com) → Seu Projeto
 2. Clique em **SQL Editor** → **New Query**
-3. Abra o arquivo **`database-final-setup.sql`** 
+3. Abra o arquivo **`database-simple-setup.sql`** (recomendado - sem recursão RLS)
 4. **Copie TODO o conteúdo** e cole no editor SQL
 5. Clique em **"Run"**
 6. ✅ Banco de dados recriado completamente!
@@ -26,12 +43,12 @@ O problema é que a tabela `profiles` não existe ou não tem o perfil do admin 
 
 ### 1️⃣ Executar o Script SQL de Inicialização
 
-**Use `database-final-setup.sql` (mais robusto que os anteriores)**
+**Use `database-simple-setup.sql` (recomendado - sem problemas de recursão RLS)**
 
 1. Vá para [Supabase Dashboard](https://supabase.com)
 2. Selecione seu projeto "gestão de frota"
 3. Clique em **SQL Editor** → **New Query**
-4. Abra `database-final-setup.sql`
+4. Abra `database-simple-setup.sql`
 5. Copie **TODO** o conteúdo
 6. Cole no editor SQL
 7. Clique em **"Run"** para executar
@@ -124,4 +141,16 @@ Se ainda não funcionar:
 |--------|-------------|
 | `database-setup.sql` | Primeiro setup (pode ter problemas) |
 | `database-cleanup-and-setup.sql` | Se o primeiro falhou (intermediário) |
-| `database-final-setup.sql` | **RECOMENDADO** - Mais robusto e completo |
+| `database-final-setup.sql` | Setup completo (pode ter recursão RLS) |
+| `database-simple-setup.sql` | **🚀 RECOMENDADO** - Sem problemas de recursão RLS |
+
+---
+
+## ⚡ Resumo Rápido
+
+1. **Execute `database-simple-setup.sql`** no Supabase SQL Editor
+2. **Crie admin** em Authentication → Users
+3. **Atualize role** com: `UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';`
+4. **Teste login** em https://frota-app-one.vercel.app/index.html
+
+✅ Pronto!
