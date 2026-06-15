@@ -94,6 +94,8 @@
   <script src="supabaseClient.js"></script>
   <script>
     // supabase is accessed via window.supabase (defined in supabaseClient.js)
+    let sessionToken = null;
+    
     if (!window.supabase) {
       console.error('Supabase client not initialized. Please check supabaseClient.js');
       window.location.href = 'index.html';
@@ -182,197 +184,290 @@
 
     // ---------- VEÍCULOS ----------
     async function loadVehicles() {
-      const { data } = await supabase.from('vehicles').select('*').order('id');
-      document.getElementById('vehicles-list').innerHTML = data.map(v => `
-        <div class="card">
-          ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
-          <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.plate || v.license_plate}
-          <button onclick="deleteVehicle(${v.id})">Apagar</button>
-        </div>
-      `).join('');
+      try {
+        const { data, error } = await window.supabase.from('vehicles').select('*').order('id');
+        if (error) throw error;
+        document.getElementById('vehicles-list').innerHTML = (data || []).map(v => `
+          <div class="card">
+            ${v.photo_url ? `<img src="${v.photo_url}" width="100">` : ''}
+            <strong>${v.brand} ${v.model}</strong> (${v.year}) - Matrícula: ${v.plate}
+            <button onclick="deleteVehicle(${v.id})">Apagar</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Erro ao carregar veículos:', err);
+        document.getElementById('vehicles-list').innerHTML = '<p>Erro: ' + err.message + '</p>';
+      }
     }
 
     window.deleteVehicle = async (id) => {
       if (!confirm('Apagar veículo?')) return;
-      await supabase.from('vehicles').delete().eq('id', id);
-      loadVehicles();
+      try {
+        const { error } = await window.supabase.from('vehicles').delete().eq('id', id);
+        if (error) throw error;
+        await loadVehicles();
+        alert('Veículo apagado com sucesso!');
+      } catch (err) {
+        console.error('Erro ao apagar veículo:', err);
+        alert('Erro: ' + err.message);
+      }
     };
 
     // ---------- COLABORADORES ----------
     async function loadDrivers() {
-      const { data } = await supabase.from('profiles').select('*').eq('role', 'driver');
-      document.getElementById('drivers-list').innerHTML = data.map(d => `
-        <div class="card">
-          <strong>${d.full_name || 'Sem nome'}</strong> (${d.email}) - Nº: ${d.access_number || '-'}
-          <button onclick="resetDriverPassword('${d.email}')">Repor Pass</button>
-          <button onclick="deleteDriver('${d.user_id}')">Apagar</button>
-        </div>
-      `).join('');
+      try {
+        const { data, error } = await window.supabase.from('profiles').select('*').eq('role', 'driver');
+        if (error) throw error;
+        document.getElementById('drivers-list').innerHTML = (data || []).map(d => `
+          <div class="card">
+            <strong>${d.full_name || 'Sem nome'}</strong> (${d.email}) - Nº: ${d.access_number || '-'}
+            <button onclick="resetDriverPassword('${d.email}')">Repor Pass</button>
+            <button onclick="deleteDriver('${d.user_id}')">Apagar</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Erro ao carregar colaboradores:', err);
+        document.getElementById('drivers-list').innerHTML = '<p>Erro: ' + err.message + '</p>';
+      }
     }
 
     window.resetDriverPassword = async (email) => {
-      const res = await fetch(window.EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-        body: JSON.stringify({ action: 'reset-password', email })
-      });
-      const result = await res.json();
-      alert(result.error ? 'Erro: ' + result.error : 'Email enviado para ' + email);
+      try {
+        const res = await fetch(window.EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ action: 'reset-password', email })
+        });
+        const result = await res.json();
+        if (result.error) throw new Error(result.error);
+        alert('Email de recuperação enviado para ' + email);
+      } catch (err) {
+        console.error('Erro ao repor password:', err);
+        alert('Erro: ' + err.message);
+      }
     };
 
     window.deleteDriver = async (userId) => {
       if (!confirm('Apagar colaborador?')) return;
-      const res = await fetch(window.EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-        body: JSON.stringify({ action: 'delete-driver', userId })
-      });
-      loadDrivers();
+      try {
+        const res = await fetch(window.EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ action: 'delete-driver', userId })
+        });
+        const result = await res.json();
+        if (result.error) throw new Error(result.error);
+        await loadDrivers();
+        alert('Colaborador apagado com sucesso!');
+      } catch (err) {
+        console.error('Erro ao apagar colaborador:', err);
+        alert('Erro: ' + err.message);
+      }
     };
 
     // ---------- HORÁRIOS E DISPONIBILIDADE ----------
     async function loadShiftsAndAvailability() {
-      // Disponibilidade
-      const { data: avail } = await supabase.from('driver_availability').select('*, profiles(full_name)');
-      document.getElementById('availability-list').innerHTML = avail.map(a => `
-        <div class="card">
-          ${a.profiles?.full_name}: ${a.date} das ${a.start_time} às ${a.end_time}
-        </div>
-      `).join('');
+      try {
+        // Disponibilidade
+        const { data: avail, error: availError } = await window.supabase.from('driver_availability').select('*, profiles(full_name)');
+        if (availError) throw availError;
+        document.getElementById('availability-list').innerHTML = (avail || []).map(a => `
+          <div class="card">
+            ${a.profiles?.full_name}: ${a.date} das ${a.start_time} às ${a.end_time}
+          </div>
+        `).join('');
 
-      // Horários criados
-      const { data: shifts } = await supabase.from('shifts').select('*, vehicles(brand, model, plate), drivers!shifts_driver_id_fkey(full_name)');
-      document.getElementById('shifts-list').innerHTML = shifts.map(s => `
-        <div class="card">
-          <strong>${s.drivers?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.plate})<br>
-          ${s.date} ${s.start_time}-${s.end_time} [${s.status}]
-          <button onclick="deleteShift(${s.id})">Remover</button>
-        </div>
-      `).join('');
+        // Horários criados
+        const { data: shifts, error: shiftsError } = await window.supabase.from('shifts').select('*, vehicles(brand, model, plate), profiles!driver_id(full_name)');
+        if (shiftsError) throw shiftsError;
+        document.getElementById('shifts-list').innerHTML = (shifts || []).map(s => `
+          <div class="card">
+            <strong>${s.profiles?.full_name}</strong> - ${s.vehicles?.brand} ${s.vehicles?.model} (${s.vehicles?.plate})<br>
+            ${s.shift_date} ${s.start_time}-${s.end_time} [${s.status}]
+            <button onclick="deleteShift(${s.id})">Remover</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Erro ao carregar horários:', err);
+        document.getElementById('shifts-list').innerHTML = '<p>Erro: ' + err.message + '</p>';
+      }
     }
 
     window.deleteShift = async (id) => {
       if (!confirm('Remover horário?')) return;
-      await supabase.from('shifts').delete().eq('id', id);
-      loadShiftsAndAvailability();
+      try {
+        const { error } = await window.supabase.from('shifts').delete().eq('id', id);
+        if (error) throw error;
+        await loadShiftsAndAvailability();
+        alert('Horário removido com sucesso!');
+      } catch (err) {
+        console.error('Erro ao remover horário:', err);
+        alert('Erro: ' + err.message);
+      }
     };
 
     // ---------- RELATÓRIOS ----------
     async function loadReportDropdowns() {
-      const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
-      const sel = document.getElementById('report-driver');
-      sel.innerHTML = '<option value="">Todos</option>' + drivers.map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+      try {
+        const { data: drivers, error } = await window.supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
+        if (error) throw error;
+        const sel = document.getElementById('report-driver');
+        sel.innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+      } catch (err) {
+        console.error('Erro ao carregar colaboradores:', err);
+      }
     }
 
     document.getElementById('generate-report').addEventListener('click', async () => {
-      const date = document.getElementById('report-date').value;
-      const driverId = document.getElementById('report-driver').value;
-      let query = supabase.from('shift_reports').select('*, shifts(*, vehicles(*), profiles!shifts_driver_id_fkey(full_name))');
-      if (date) query = query.eq('shifts.date', date);
-      if (driverId) query = query.eq('driver_id', driverId);
-      const { data } = await query;
-      let html = '<table><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Combustível (L)</th><th>Custo (€)</th><th>Faturado (€)</th><th>Notas</th></tr>';
-      data.forEach(r => {
-        html += `<tr>
-          <td>${r.shifts?.date}</td>
-          <td>${r.shifts?.profiles?.full_name}</td>
-          <td>${r.shifts?.vehicles?.plate}</td>
-          <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
-          <td>${r.notes || ''}</td>
-        </tr>`;
-      });
-      html += '</table>';
-      document.getElementById('report-output').innerHTML = html;
+      try {
+        const date = document.getElementById('report-date').value;
+        const driverId = document.getElementById('report-driver').value;
+        let query = window.supabase.from('shift_reports').select('*, shifts(*, vehicles(*), profiles!driver_id(full_name))');
+        if (date) query = query.eq('shifts.shift_date', date);
+        if (driverId) query = query.eq('driver_id', driverId);
+        const { data, error } = await query;
+        if (error) throw error;
+        let html = '<table><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Combustível (L)</th><th>Custo (€)</th><th>Faturado (€)</th><th>Notas</th></tr>';
+        (data || []).forEach(r => {
+          html += `<tr>
+            <td>${r.shifts?.shift_date}</td>
+            <td>${r.shifts?.profiles?.full_name}</td>
+            <td>${r.shifts?.vehicles?.plate}</td>
+            <td>${r.start_km}</td><td>${r.end_km}</td><td>${r.fuel_litres}</td><td>${r.fuel_cost}</td><td>${r.invoiced_amount}</td>
+            <td>${r.notes || ''}</td>
+          </tr>`;
+        });
+        html += '</table>';
+        document.getElementById('report-output').innerHTML = html;
+      } catch (err) {
+        console.error('Erro ao gerar relatório:', err);
+        document.getElementById('report-output').innerHTML = '<p>Erro: ' + err.message + '</p>';
+      }
     });
 
     // ---------- DEFINIÇÕES ADMIN ----------
     async function loadAdminSettings() {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
-      document.getElementById('admin-username').value = profile.username || '';
-      document.getElementById('admin-email').value = user.email || '';
+      try {
+        const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+        if (userError) throw userError;
+        const { data: profile, error: profileError } = await window.supabase.from('profiles').select('*').eq('user_id', user.id).single();
+        if (profileError) throw profileError;
+        document.getElementById('admin-username').value = profile?.username || '';
+        document.getElementById('admin-email').value = user?.email || '';
+      } catch (err) {
+        console.error('Erro ao carregar definições:', err);
+      }
     }
 
     document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const newUsername = document.getElementById('admin-username').value;
-      const pw1 = document.getElementById('admin-new-pw1').value;
-      const pw2 = document.getElementById('admin-new-pw2').value;
-      const newEmail = document.getElementById('admin-email').value;
-      const msg = document.getElementById('settings-msg');
+      try {
+        const newUsername = document.getElementById('admin-username').value;
+        const pw1 = document.getElementById('admin-new-pw1').value;
+        const pw2 = document.getElementById('admin-new-pw2').value;
+        const newEmail = document.getElementById('admin-email').value;
+        const msg = document.getElementById('settings-msg');
 
-      if (pw1 && pw1 !== pw2) {
-        msg.textContent = 'As palavras-passe não coincidem.';
-        return;
-      }
+        if (pw1 && pw1 !== pw2) {
+          msg.textContent = 'As palavras-passe não coincidem.';
+          return;
+        }
 
-      // Atualizar username
-      if (newUsername) {
-        await supabase.from('profiles').update({ username: newUsername }).eq('user_id', (await supabase.auth.getUser()).data.user.id);
+        // Atualizar username
+        if (newUsername) {
+          const user = (await window.supabase.auth.getUser()).data?.user;
+          if (user) {
+            await window.supabase.from('profiles').update({ username: newUsername }).eq('user_id', user.id);
+          }
+        }
+        // Atualizar password
+        if (pw1) {
+          await window.supabase.auth.updateUser({ password: pw1 });
+        }
+        // Atualizar email
+        if (newEmail) {
+          await window.supabase.auth.updateUser({ email: newEmail });
+        }
+        msg.textContent = 'Definições guardadas.';
+      } catch (err) {
+        console.error('Erro ao guardar definições:', err);
+        document.getElementById('settings-msg').textContent = 'Erro: ' + err.message;
       }
-      // Atualizar password
-      if (pw1) {
-        await supabase.auth.updateUser({ password: pw1 });
-      }
-      // Atualizar email
-      if (newEmail) {
-        await supabase.auth.updateUser({ email: newEmail });
-      }
-      msg.textContent = 'Definições guardadas.';
     });
 
     // ---------- FORMULÁRIOS ----------
     function setupForms() {
       document.getElementById('vehicle-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const brand = document.getElementById('v-brand').value;
-        const model = document.getElementById('v-model').value;
-        const plate = document.getElementById('v-plate').value;
-        const year = document.getElementById('v-year').value;
-        const photoFile = document.getElementById('v-photo').files[0];
-        let photo_url = null;
-        if (photoFile) {
-          const compressed = await compressImage(photoFile);
-          const path = `uploads/${Date.now()}_${photoFile.name}`;
-          const { error } = await supabase.storage.from('fleet-photos').upload(path, compressed);
-          if (!error) {
-            const { data } = supabase.storage.from('fleet-photos').getPublicUrl(path);
-            photo_url = data.publicUrl;
+        try {
+          const brand = document.getElementById('v-brand').value;
+          const model = document.getElementById('v-model').value;
+          const plate = document.getElementById('v-plate').value;
+          const year = document.getElementById('v-year').value;
+          const photoFile = document.getElementById('v-photo').files[0];
+          let photo_url = null;
+          if (photoFile) {
+            const compressed = await compressImage(photoFile);
+            const path = `uploads/${Date.now()}_${photoFile.name}`;
+            const { error } = await window.supabase.storage.from('fleet-photos').upload(path, compressed);
+            if (!error) {
+              const { data } = window.supabase.storage.from('fleet-photos').getPublicUrl(path);
+              photo_url = data.publicUrl;
+            }
           }
+          const { error } = await window.supabase.from('vehicles').insert({ brand, model, plate, year: parseInt(year) || null, photo_url });
+          if (error) throw error;
+          await loadVehicles();
+          e.target.reset();
+          alert('Veículo adicionado com sucesso!');
+        } catch (err) {
+          console.error('Erro ao adicionar veículo:', err);
+          alert('Erro: ' + err.message);
         }
-        await supabase.from('vehicles').insert({ brand, model, plate, year: parseInt(year) || null, photo_url });
-        loadVehicles();
-        e.target.reset();
       });
 
       document.getElementById('driver-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('d-email').value;
-        const password = document.getElementById('d-password').value;
-        const fullName = document.getElementById('d-name').value;
-        const accessNumber = document.getElementById('d-access-number').value;
-        const res = await fetch(window.EDGE_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-          body: JSON.stringify({ action: 'create-driver', email, password })
-        });
-        const result = await res.json();
-        if (result.error) { alert('Erro: ' + result.error); return; }
-        await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', result.userId);
-        loadDrivers();
-        e.target.reset();
+        try {
+          const email = document.getElementById('d-email').value;
+          const password = document.getElementById('d-password').value;
+          const fullName = document.getElementById('d-name').value;
+          const accessNumber = document.getElementById('d-access-number').value;
+          const res = await fetch(window.EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+            body: JSON.stringify({ action: 'create-driver', email, password })
+          });
+          const result = await res.json();
+          if (result.error) throw new Error(result.error);
+          const { error } = await window.supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', result.userId);
+          if (error) throw error;
+          await loadDrivers();
+          e.target.reset();
+          alert('Colaborador criado com sucesso!');
+        } catch (err) {
+          console.error('Erro ao criar colaborador:', err);
+          alert('Erro: ' + err.message);
+        }
       });
 
       document.getElementById('shift-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const driver_id = document.getElementById('s-driver').value;
-        const vehicle_id = document.getElementById('s-vehicle').value;
-        const date = document.getElementById('s-date').value;
-        const start_time = document.getElementById('s-start').value;
-        const end_time = document.getElementById('s-end').value;
-        await supabase.from('shifts').insert({ driver_id, vehicle_id: parseInt(vehicle_id), date, start_time, end_time });
-        loadShiftsAndAvailability();
-        e.target.reset();
+        try {
+          const driver_id = document.getElementById('s-driver').value;
+          const vehicle_id = document.getElementById('s-vehicle').value;
+          const date = document.getElementById('s-date').value;
+          const start_time = document.getElementById('s-start').value;
+          const end_time = document.getElementById('s-end').value;
+          const { error } = await window.supabase.from('shifts').insert({ driver_id, vehicle_id: parseInt(vehicle_id), shift_date: date, start_time, end_time });
+          if (error) throw error;
+          await loadShiftsAndAvailability();
+          e.target.reset();
+          alert('Horário criado com sucesso!');
+        } catch (err) {
+          console.error('Erro ao criar horário:', err);
+          alert('Erro: ' + err.message);
+        }
       });
     }
 

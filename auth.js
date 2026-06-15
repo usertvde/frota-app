@@ -1,6 +1,6 @@
 // Quando a página carrega, verifica se já há sessão
 window.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await window.supabase.auth.getSession();
   if (session) {
     // Já está logado, vai direto para a app
     window.location.href = 'app.html';
@@ -11,7 +11,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('email').value;
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await window.supabase.auth.signInWithOtp({
     email: email,
     options: {
       // O link mágico redireciona para callback.html
