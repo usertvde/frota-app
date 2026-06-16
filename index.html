@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#007bff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Frota">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>Login - Gestão de Frota</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
@@ -10,6 +15,13 @@
 <body>
   <div class="container">
     <h1>🚛 Gestão de Frota</h1>
+    
+    <!-- Botão de instalação PWA -->
+    <div id="install-banner" style="display:none; background:#e8f4fd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center;">
+      <p style="margin:0 0 10px 0;">📱 Instale esta aplicação no seu dispositivo para acesso rápido</p>
+      <button id="install-btn" style="background:#28a745; font-size:16px;">Instalar Aplicação</button>
+    </div>
+
     <form id="login-form">
       <input type="text" id="login-id" placeholder="Nome de utilizador, nº de acesso ou email" required autocomplete="username">
       <input type="password" id="password" placeholder="Palavra-passe" required autocomplete="current-password">
@@ -25,13 +37,80 @@
     (function() {
       const supabase = window.supabase;
       if (!supabase) {
-        document.body.innerHTML = '<h1 style="color:red;">Erro: Supabase não carregou.</h1>';
+        document.body.innerHTML = '<h1 style="color:red;">Erro: Sistema não inicializado. Contacte o administrador.</h1>';
         return;
       }
 
-      console.log('index.html iniciado');
+      console.log('index.html carregado com sucesso');
 
-      // Redirecionar com base no perfil
+      // =============================================
+      // PWA - INSTALAÇÃO
+      // =============================================
+      let deferredPrompt;
+
+      // Registar o Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('Service Worker registado com sucesso:', registration.scope);
+            })
+            .catch(err => {
+              console.error('Erro ao registar Service Worker:', err);
+            });
+        });
+      }
+
+      // Capturar o evento de instalação PWA
+      window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('Evento beforeinstallprompt capturado');
+        // Prevenir que o browser mostre o diálogo automaticamente
+        e.preventDefault();
+        // Guardar o evento para usar mais tarde
+        deferredPrompt = e;
+        // Mostrar o banner de instalação
+        const banner = document.getElementById('install-banner');
+        if (banner) {
+          banner.style.display = 'block';
+        }
+      });
+
+      // Botão de instalação
+      document.getElementById('install-btn').addEventListener('click', async () => {
+        if (deferredPrompt) {
+          // Mostrar o diálogo de instalação
+          deferredPrompt.prompt();
+          // Esperar pela resposta do utilizador
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('Resultado da instalação:', outcome);
+          // Limpar o evento guardado
+          deferredPrompt = null;
+          // Esconder o banner
+          document.getElementById('install-banner').style.display = 'none';
+        } else {
+          // Se o evento não estiver disponível, dar instruções
+          alert('Para instalar esta aplicação:\n\n' +
+                '• Android: Abra o menu do Chrome (3 pontos) e selecione "Adicionar ao ecrã inicial"\n\n' +
+                '• iPhone/iPad: Toque no ícone de partilha (Safari) e selecione "Adicionar ao Ecrã Principal"\n\n' +
+                '• Computador: Clique no ícone de instalação na barra de endereços');
+        }
+      });
+
+      // Esconder o banner se a app já estiver instalada
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        document.getElementById('install-banner').style.display = 'none';
+      }
+
+      // Detetar quando a app é instalada
+      window.addEventListener('appinstalled', () => {
+        console.log('Aplicação instalada com sucesso!');
+        document.getElementById('install-banner').style.display = 'none';
+        deferredPrompt = null;
+      });
+
+      // =============================================
+      // FUNÇÃO DE REDIRECIONAMENTO
+      // =============================================
       async function redirectBasedOnRole(userId) {
         try {
           const { data: profile, error } = await supabase
@@ -40,7 +119,15 @@
             .eq('user_id', userId)
             .single();
 
-          if (error || !profile) {
+          if (error) {
+            console.error('Erro ao obter perfil:', error);
+            await supabase.auth.signOut();
+            window.location.href = 'index.html';
+            return;
+          }
+
+          if (!profile) {
+            console.error('Perfil não encontrado');
             await supabase.auth.signOut();
             window.location.href = 'index.html';
             return;
@@ -48,8 +135,11 @@
 
           if (profile.role === 'admin') {
             window.location.href = 'admin.html';
-          } else {
+          } else if (profile.role === 'driver') {
             window.location.href = 'driver.html';
+          } else {
+            await supabase.auth.signOut();
+            window.location.href = 'index.html';
           }
         } catch (err) {
           console.error('Erro ao redirecionar:', err);
@@ -57,10 +147,16 @@
         }
       }
 
-      // Verificar sessão ativa ao carregar
+      // =============================================
+      // VERIFICAR SESSÃO ATIVA
+      // =============================================
       (async () => {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error('Erro ao verificar sessão:', error);
+            return;
+          }
           if (session) {
             console.log('Sessão ativa encontrada, redirecionando...');
             await redirectBasedOnRole(session.user.id);
@@ -70,7 +166,9 @@
         }
       })();
 
-      // Evento de submit do formulário
+      // =============================================
+      // FORMULÁRIO DE LOGIN
+      // =============================================
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const loginId = document.getElementById('login-id').value.trim();
@@ -78,73 +176,83 @@
         const errorMsg = document.getElementById('error-msg');
         errorMsg.textContent = '';
 
+        if (!loginId || !password) {
+          errorMsg.textContent = 'Preencha todos os campos.';
+          return;
+        }
+
         let email = loginId;
 
-        // Se não for email, descobrir o email correto
         if (!loginId.includes('@')) {
           try {
-            // Verificar se é um nome de utilizador (admin)
             const { data: emailByUsername, error: usernameError } = await supabase.rpc('get_email_by_username', { p_username: loginId });
+            
             if (!usernameError && emailByUsername) {
               email = emailByUsername;
             } else {
-              // Verificar se é um número de acesso (colaborador)
               const { data: emailByAccess, error: accessError } = await supabase.rpc('get_email_by_access_number', { p_access_number: loginId });
+              
               if (!accessError && emailByAccess) {
                 email = emailByAccess;
               } else {
-                errorMsg.textContent = 'Utilizador não encontrado. Verifique o nome, nº de acesso ou email.';
+                errorMsg.textContent = 'Utilizador não encontrado. Verifique os dados.';
                 return;
               }
             }
           } catch (err) {
             errorMsg.textContent = 'Erro ao procurar utilizador.';
-            console.error(err);
             return;
           }
         }
 
-        // Fazer login
         try {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
           if (error) {
-            errorMsg.textContent = 'Erro de login: ' + error.message;
-            console.error('Erro de autenticação:', error);
+            if (error.message.includes('Invalid login credentials')) {
+              errorMsg.textContent = 'Credenciais inválidas.';
+            } else {
+              errorMsg.textContent = 'Erro: ' + error.message;
+            }
             return;
           }
 
           if (!data || !data.user) {
-            errorMsg.textContent = 'Erro: Resposta de login inválida.';
+            errorMsg.textContent = 'Erro: Resposta inválida.';
             return;
           }
 
-          console.log('Login bem-sucedido, redirecionando...');
           await redirectBasedOnRole(data.user.id);
         } catch (err) {
           errorMsg.textContent = 'Erro inesperado: ' + err.message;
-          console.error('Erro durante login:', err);
         }
       });
 
-      // Recuperar palavra-passe
+      // =============================================
+      // RECUPERAR PALAVRA-PASSE
+      // =============================================
       document.getElementById('forgot-password').addEventListener('click', async (e) => {
         e.preventDefault();
         const loginId = document.getElementById('login-id').value.trim();
+        
+        if (!loginId) {
+          alert('Introduza o seu identificador primeiro.');
+          return;
+        }
+
         let email = loginId;
 
         if (!loginId.includes('@')) {
           try {
-            // Tentar username primeiro
             const { data: emailByUsername } = await supabase.rpc('get_email_by_username', { p_username: loginId });
             if (emailByUsername) {
               email = emailByUsername;
             } else {
-              // Tentar número de acesso
               const { data: emailByAccess } = await supabase.rpc('get_email_by_access_number', { p_access_number: loginId });
               if (emailByAccess) {
                 email = emailByAccess;
               } else {
-                alert('Introduza um identificador válido primeiro ou contacte o administrador.');
+                alert('Utilizador não encontrado. Contacte o administrador.');
                 return;
               }
             }
@@ -158,6 +266,7 @@
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: window.location.origin + '/index.html',
           });
+
           if (error) {
             alert('Erro: ' + error.message);
           } else {
