@@ -32,7 +32,7 @@
 
     <div id="availability-panel" class="panel">
       <h2>Definir Disponibilidade (Próximos 30 dias)</h2>
-      <p style="font-size:14px;color:#666;">Arraste o dedo/rato sobre as células para marcar/desmarcar. Use as barras de scroll para navegar.</p>
+      <p style="font-size:14px;color:#666;">Arraste o dedo sobre as células para marcar/desmarcar. Use as barras de scroll para navegar.</p>
       <div class="availability-legend" style="margin-bottom:10px;">
         <button id="select-all-btn" style="font-size:12px;padding:5px 10px;margin-right:5px;">Selecionar Tudo</button>
         <button id="clear-all-btn" style="font-size:12px;padding:5px 10px;">Limpar Tudo</button>
@@ -485,7 +485,7 @@
           const cells = container.querySelectorAll('.avail-cell');
 
           cells.forEach(cell => {
-            cell.addEventListener('mousedown', (e) => {
+            cell.addEventListener('pointerdown', (e) => {
               e.preventDefault();
               isDragging = true;
               const date = cell.dataset.date;
@@ -494,37 +494,16 @@
               toggleCell(cell, date, slot);
             });
 
-            cell.addEventListener('mouseenter', () => {
+            cell.addEventListener('pointerenter', () => {
               if (isDragging) {
                 const date = cell.dataset.date;
                 const slot = parseInt(cell.dataset.slot);
                 applyDragMode(cell, date, slot);
               }
             });
-
-            cell.addEventListener('touchstart', (e) => {
-              isDragging = true;
-              const date = cell.dataset.date;
-              const slot = parseInt(cell.dataset.slot);
-              dragMode = availabilityGridData[date][slot] ? 'remove' : 'add';
-              toggleCell(cell, date, slot);
-            });
-
-            cell.addEventListener('touchmove', (e) => {
-              if (isDragging) {
-                const touch = e.touches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (target && target.classList.contains('avail-cell')) {
-                  const date = target.dataset.date;
-                  const slot = parseInt(target.dataset.slot);
-                  applyDragMode(target, date, slot);
-                }
-              }
-            });
           });
 
-          document.addEventListener('mouseup', () => { isDragging = false; dragMode = null; });
-          document.addEventListener('touchend', () => { isDragging = false; dragMode = null; });
+          document.addEventListener('pointerup', () => { isDragging = false; dragMode = null; });
 
           function toggleCell(cell, date, slot) {
             availabilityGridData[date][slot] = !availabilityGridData[date][slot];

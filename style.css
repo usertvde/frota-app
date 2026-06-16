@@ -51,14 +51,8 @@ body {
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 #install-btn {
@@ -69,14 +63,8 @@ body {
   transition: background 0.2s, transform 0.1s;
 }
 
-#install-btn:hover {
-  background: #218838 !important;
-  transform: scale(1.02);
-}
-
-#install-btn:active {
-  transform: scale(0.98);
-}
+#install-btn:hover { background: #218838 !important; transform: scale(1.02); }
+#install-btn:active { transform: scale(0.98); }
 
 #ios-banner {
   background: #fff3cd;
@@ -108,9 +96,7 @@ body {
   transition: all 0.2s;
 }
 
-.tab:hover {
-  background: #dde2e6;
-}
+.tab:hover { background: #dde2e6; }
 
 .tab.active {
   background: #007bff;
@@ -121,29 +107,12 @@ body {
 /* =============================================
    PAINÉIS
    ============================================= */
-.panel {
-  display: none;
-}
+.panel { display: none; }
+.panel.active { display: block; }
 
-.panel.active {
-  display: block;
-}
-
-.panel h2 {
-  margin-top: 0;
-  color: #1a1a1a;
-  font-size: 20px;
-}
-
-.panel h3 {
-  color: #555;
-  margin: 20px 0 10px;
-}
-
-.panel h4 {
-  color: #333;
-  margin: 10px 0;
-}
+.panel h2 { margin-top: 0; color: #1a1a1a; font-size: 20px; }
+.panel h3 { color: #555; margin: 20px 0 10px; }
+.panel h4 { color: #333; margin: 10px 0; }
 
 /* =============================================
    FORMULÁRIOS
@@ -172,9 +141,7 @@ label {
   color: #555;
 }
 
-input,
-select,
-textarea {
+input, select, textarea {
   padding: 10px 12px;
   border: 1px solid #ced4da;
   border-radius: 6px;
@@ -182,9 +149,7 @@ textarea {
   transition: border-color 0.2s;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: #007bff;
   box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
@@ -202,165 +167,64 @@ button {
   transition: background 0.2s;
 }
 
-button:hover {
-  background: #0056b3;
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
-button:disabled {
-  background: #adb5bd !important;
-  cursor: not-allowed;
-  transform: none;
-}
+button:hover { background: #0056b3; }
+button:active { transform: scale(0.98); }
+button:disabled { background: #adb5bd !important; cursor: not-allowed; transform: none; }
 
 /* =============================================
    FILE INPUT
    ============================================= */
-.file-label {
-  cursor: pointer;
-}
-
-.file-input {
-  padding: 8px;
-  font-size: 14px;
-}
-
-.file-input-hidden {
-  display: none !important;
-}
+.file-label { cursor: pointer; }
+.file-input { padding: 8px; font-size: 14px; }
+.file-input-hidden { display: none !important; }
 
 /* =============================================
    BOTÕES COLORIDOS
    ============================================= */
-.start-btn {
-  background: #28a745 !important;
-}
+.start-btn { background: #28a745 !important; }
+.start-btn:hover { background: #218838 !important; }
 
-.start-btn:hover {
-  background: #218838 !important;
-}
+.end-btn { background: #dc3545 !important; }
+.end-btn:hover { background: #c82333 !important; }
 
-.end-btn {
-  background: #dc3545 !important;
-}
+.edit-btn { background: #ffc107 !important; color: #333 !important; }
+.edit-btn:hover { background: #e0a800 !important; }
 
-.end-btn:hover {
-  background: #c82333 !important;
-}
+.reset-btn { background: #17a2b8 !important; }
+.reset-btn:hover { background: #138496 !important; }
 
-.edit-btn {
-  background: #ffc107 !important;
-  color: #333 !important;
-}
+.delete-btn { background: #dc3545 !important; }
+.delete-btn:hover { background: #c82333 !important; }
 
-.edit-btn:hover {
-  background: #e0a800 !important;
-}
+.delete-btn-sm { background: #dc3545 !important; padding: 5px 10px !important; font-size: 12px !important; }
+.delete-btn-sm:hover { background: #c82333 !important; }
 
-.reset-btn {
-  background: #17a2b8 !important;
-}
+.save-btn { background: #28a745 !important; }
+.save-btn:hover { background: #218838 !important; }
 
-.reset-btn:hover {
-  background: #138496 !important;
-}
+.cancel-btn { background: #6c757d !important; }
+.cancel-btn:hover { background: #5a6268 !important; }
 
-.delete-btn {
-  background: #dc3545 !important;
-}
+.export-btn { background: #28a745 !important; }
+.export-btn:hover { background: #218838 !important; }
 
-.delete-btn:hover {
-  background: #c82333 !important;
-}
+.add-note-btn { background: #6f42c1 !important; font-size: 12px !important; padding: 6px 12px !important; margin-top: 5px; }
+.add-note-btn:hover { background: #5a32a3 !important; }
 
-.delete-btn-sm {
-  background: #dc3545 !important;
-  padding: 5px 10px !important;
-  font-size: 12px !important;
-}
+.logout-btn { background: #dc3545 !important; }
+.logout-btn:hover { background: #c82333 !important; }
 
-.delete-btn-sm:hover {
-  background: #c82333 !important;
-}
-
-.save-btn {
-  background: #28a745 !important;
-}
-
-.save-btn:hover {
-  background: #218838 !important;
-}
-
-.cancel-btn {
-  background: #6c757d !important;
-}
-
-.cancel-btn:hover {
-  background: #5a6268 !important;
-}
-
-.export-btn {
-  background: #28a745 !important;
-}
-
-.export-btn:hover {
-  background: #218838 !important;
-}
-
-.add-note-btn {
-  background: #6f42c1 !important;
-  font-size: 12px !important;
-  padding: 6px 12px !important;
-  margin-top: 5px;
-}
-
-.add-note-btn:hover {
-  background: #5a32a3 !important;
-}
-
-.logout-btn {
-  background: #dc3545 !important;
-}
-
-.logout-btn:hover {
-  background: #c82333 !important;
-}
-
-.select-avail-btn {
-  background: #007bff !important;
-  color: white !important;
-  padding: 5px 10px !important;
-  font-size: 12px !important;
-}
+.select-avail-btn { background: #007bff !important; color: white !important; padding: 5px 10px !important; font-size: 12px !important; }
 
 /* =============================================
    BOTÕES DE CÂMARA
    ============================================= */
-.photo-buttons {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.photo-buttons { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.camera-btn {
-  background: #28a745 !important;
-  font-size: 14px !important;
-  padding: 10px 16px !important;
-}
+.camera-btn { background: #28a745 !important; font-size: 14px !important; padding: 10px 16px !important; }
+.camera-btn:hover { background: #218838 !important; }
 
-.camera-btn:hover {
-  background: #218838 !important;
-}
-
-.photo-name {
-  font-size: 13px;
-  color: #666;
-  word-break: break-all;
-}
+.photo-name { font-size: 13px; color: #666; word-break: break-all; }
 
 /* =============================================
    CARDS
@@ -375,205 +239,85 @@ button:disabled {
   transition: box-shadow 0.2s;
 }
 
-.card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.card button {
-  padding: 6px 14px;
-  font-size: 13px;
-  margin: 3px 5px 3px 0;
-}
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.card button { padding: 6px 14px; font-size: 13px; margin: 3px 5px 3px 0; }
 
 /* =============================================
    CARD LAYOUTS
    ============================================= */
-.vehicle-display {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
+.vehicle-display { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.vehicle-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.vehicle-info span { font-size: 13px; color: #666; }
+.vehicle-img { width: 80px; height: 60px; object-fit: cover; }
+.no-photo { width: 80px; height: 60px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #999; font-size: 12px; }
+.vehicle-edit { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dee2e6; }
 
-.vehicle-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
+.driver-display { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.driver-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.driver-info span { font-size: 13px; color: #666; }
+.driver-edit { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dee2e6; }
 
-.vehicle-info span {
-  font-size: 13px;
-  color: #666;
-}
+.card-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.edit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.vehicle-img {
-  width: 80px;
-  height: 60px;
-  object-fit: cover;
-}
+.shift-info { display: flex; flex-direction: column; gap: 5px; }
+.shift-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.shift-form-container { margin-top: 12px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px dashed #ced4da; }
 
-.no-photo {
-  width: 80px;
-  height: 60px;
-  background: #f8f9fa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: #999;
-  font-size: 12px;
-}
+.availability-card { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.availability-info { display: flex; gap: 15px; flex-wrap: wrap; }
 
-.vehicle-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #dee2e6;
-}
+.history-card { line-height: 1.8; }
+.history-info { display: flex; flex-direction: column; gap: 4px; }
+.history-info span { font-size: 14px; }
 
-.driver-display {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.driver-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.driver-info span {
-  font-size: 13px;
-  color: #666;
-}
-
-.driver-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #dee2e6;
-}
-
-.card-actions {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.shift-info {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.shift-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.shift-form-container {
-  margin-top: 12px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px dashed #ced4da;
-}
-
-.availability-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.availability-info {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.history-card {
-  line-height: 1.8;
-}
-
-.history-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.history-info span {
-  font-size: 14px;
-}
-
-.photo-links {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 5px;
-}
-
-.photo-link {
-  color: #007bff;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.photo-link:hover {
-  text-decoration: underline;
-}
+.photo-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
+.photo-link { color: #007bff; text-decoration: none; font-size: 14px; }
+.photo-link:hover { text-decoration: underline; }
 
 /* =============================================
    STATUS BADGES
    ============================================= */
-.status-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-assigned {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-started {
-  background: #cce5ff;
-  color: #004085;
-}
-
-.status-completed {
-  background: #d4edda;
-  color: #155724;
-}
+.status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.status-assigned { background: #fff3cd; color: #856404; }
+.status-started { background: #cce5ff; color: #004085; }
+.status-completed { background: #d4edda; color: #155724; }
 
 /* =============================================
    GRELHA DE DISPONIBILIDADE COM SCROLL
    ============================================= */
 .grid-scroll-container {
   overflow: auto;
-  max-height: 60vh;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
+  max-height: 55vh;
+  border: 2px solid #007bff;
+  border-radius: 10px;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  background: #fff;
+}
+
+.grid-scroll-container::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.grid-scroll-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.grid-scroll-container::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 10px;
+  border: 3px solid #f1f1f1;
+}
+
+.grid-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}
+
+.grid-scroll-container::-webkit-scrollbar-corner {
+  background: #f1f1f1;
 }
 
 .grid-wrapper {
@@ -593,9 +337,10 @@ button:disabled {
   z-index: 10;
   background: #007bff;
   color: white;
-  padding: 6px 4px;
+  padding: 8px 4px;
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .availability-table .corner-cell {
@@ -604,30 +349,33 @@ button:disabled {
   left: 0;
   z-index: 11;
   background: #0056b3;
+  min-width: 55px;
 }
 
 .availability-table .time-cell {
   position: sticky;
   left: 0;
   z-index: 5;
-  background: #f8f9fa;
+  background: #e9ecef;
   font-weight: bold;
   text-align: center;
-  padding: 4px 6px;
-  font-size: 10px;
-  border-right: 2px solid #dee2e6;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-right: 2px solid #007bff;
+  min-width: 55px;
 }
 
 .availability-table td {
-  border: 1px solid #e9ecef;
-  padding: 2px;
+  border: 1px solid #dee2e6;
+  padding: 4px 6px;
   text-align: center;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  width: 28px;
-  height: 22px;
-  transition: background 0.1s;
+  touch-action: none;
+  width: 32px;
+  height: 28px;
+  transition: background 0.15s;
 }
 
 .avail-cell.avail-yes {
@@ -637,11 +385,12 @@ button:disabled {
 }
 
 .avail-cell.avail-no {
-  background: #f8f9fa;
+  background: #fff;
 }
 
-.avail-cell:hover {
-  background: #b8daff !important;
+.avail-cell:active {
+  background: #007bff !important;
+  color: white !important;
 }
 
 .availability-legend {
@@ -653,246 +402,77 @@ button:disabled {
 /* =============================================
    TABELAS
    ============================================= */
-.table-wrapper {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
+.table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  margin: 15px 0;
-  min-width: 600px;
-}
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 15px 0; min-width: 600px; }
 
-th,
-td {
-  border: 1px solid #dee2e6;
-  padding: 10px;
-  text-align: left;
-}
-
-th {
-  background: #007bff;
-  color: white;
-  font-weight: 600;
-}
-
-tr:nth-child(even) {
-  background: #f8f9fa;
-}
+th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+th { background: #007bff; color: white; font-weight: 600; }
+tr:nth-child(even) { background: #f8f9fa; }
 
 /* =============================================
    IMAGENS
    ============================================= */
-img {
-  max-width: 120px;
-  border-radius: 6px;
-  margin: 5px;
-  border: 1px solid #dee2e6;
-}
+img { max-width: 120px; border-radius: 6px; margin: 5px; border: 1px solid #dee2e6; }
 
 /* =============================================
    FILTROS E BOTÕES EM LINHA
    ============================================= */
-.filter-row {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
+.filter-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
+.filter-row label { flex: 1; min-width: 150px; }
 
-.filter-row label {
-  flex: 1;
-  min-width: 150px;
-}
+.button-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
 
-.button-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
-
-.time-row {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.time-row label {
-  flex: 1;
-  min-width: 120px;
-}
+.time-row { display: flex; gap: 15px; flex-wrap: wrap; }
+.time-row label { flex: 1; min-width: 120px; }
 
 /* =============================================
    MENSAGENS
    ============================================= */
-#error-msg {
-  margin-top: 10px;
-  font-weight: 500;
-}
+#error-msg { margin-top: 10px; font-weight: 500; }
+#settings-msg, #change-pwd-msg { margin-top: 10px; font-weight: 500; }
 
-#settings-msg,
-#change-pwd-msg {
-  margin-top: 10px;
-  font-weight: 500;
-}
-
-.empty-msg {
-  text-align: center;
-  color: #999;
-  padding: 20px;
-  font-style: italic;
-}
-
-.error-msg {
-  color: #dc3545;
-  padding: 10px;
-  background: #f8d7da;
-  border-radius: 6px;
-}
+.empty-msg { text-align: center; color: #999; padding: 20px; font-style: italic; }
+.error-msg { color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 6px; }
 
 /* =============================================
    AVISO DE CONFLITO DE VEÍCULO
    ============================================= */
-#vehicle-conflict-warning {
-  background: #fff3cd;
-  padding: 10px;
-  border-radius: 5px;
-  margin-top: 10px;
-  border: 1px solid #ffc107;
-}
+#vehicle-conflict-warning { background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 10px; border: 1px solid #ffc107; }
 
 /* =============================================
    RESPONSIVIDADE
    ============================================= */
 @media (max-width: 768px) {
-  .container {
-    margin: 10px;
-    padding: 15px;
-  }
-
-  .header {
-    flex-direction: column;
-    gap: 10px;
-    text-align: center;
-  }
-
-  .tabs {
-    flex-direction: column;
-  }
-
-  .tab {
-    width: 100%;
-    text-align: center;
-  }
-
-  form {
-    padding: 15px;
-  }
-
-  table {
-    font-size: 12px;
-    min-width: 500px;
-  }
-
-  th,
-  td {
-    padding: 6px;
-  }
-
-  .vehicle-display {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .driver-display {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .card-actions {
-    width: 100%;
-  }
-
-  .filter-row {
-    flex-direction: column;
-  }
-
-  .time-row {
-    flex-direction: column;
-  }
-
-  .button-row {
-    flex-direction: column;
-  }
-
-  .button-row button {
-    width: 100%;
-  }
-
-  .grid-scroll-container {
-    max-height: 50vh;
-  }
+  .container { margin: 10px; padding: 15px; }
+  .header { flex-direction: column; gap: 10px; text-align: center; }
+  .tabs { flex-direction: column; }
+  .tab { width: 100%; text-align: center; }
+  form { padding: 15px; }
+  table { font-size: 12px; min-width: 500px; }
+  th, td { padding: 6px; }
+  .vehicle-display { flex-direction: column; align-items: flex-start; }
+  .driver-display { flex-direction: column; align-items: flex-start; }
+  .card-actions { width: 100%; }
+  .filter-row { flex-direction: column; }
+  .time-row { flex-direction: column; }
+  .button-row { flex-direction: column; }
+  .button-row button { width: 100%; }
+  .grid-scroll-container { max-height: 50vh; }
 }
 
 @media (max-width: 480px) {
-  .header h1 {
-    font-size: 18px;
-  }
-
-  button {
-    width: 100%;
-  }
-
-  .card button {
-    width: auto;
-  }
-
-  #install-banner {
-    padding: 12px;
-  }
-
-  #install-btn {
-    width: 100%;
-  }
-
-  .tabs {
-    gap: 5px;
-  }
-
-  .tab {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .card {
-    padding: 10px;
-  }
-
-  form {
-    padding: 12px;
-  }
-
-  input,
-  select,
-  textarea {
-    font-size: 16px;
-  }
-
-  .grid-scroll-container {
-    max-height: 40vh;
-  }
-
-  .availability-table {
-    font-size: 9px;
-  }
-
-  .availability-table td {
-    width: 22px;
-    height: 18px;
-    padding: 1px;
-  }
+  .header h1 { font-size: 18px; }
+  button { width: 100%; }
+  .card button { width: auto; }
+  #install-banner { padding: 12px; }
+  #install-btn { width: 100%; }
+  .tabs { gap: 5px; }
+  .tab { padding: 8px 12px; font-size: 13px; }
+  .card { padding: 10px; }
+  form { padding: 12px; }
+  input, select, textarea { font-size: 16px; }
+  .grid-scroll-container { max-height: 40vh; }
+  .availability-table { font-size: 9px; }
+  .availability-table td { width: 28px; height: 24px; padding: 2px; }
 }
