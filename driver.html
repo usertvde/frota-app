@@ -32,7 +32,11 @@
 
     <div id="availability-panel" class="panel">
       <h2>Definir Disponibilidade (Próximos 30 dias)</h2>
-      <p style="font-size:14px;color:#666;">Clique nas horas para as marcar como disponíveis. Depois clique em "Guardar Disponibilidade".</p>
+      <p style="font-size:14px;color:#666;">Arraste o rato sobre as células para marcar/desmarcar períodos de 30 minutos. Células a <span style="background:#cce5ff;padding:2px 6px;border-radius:3px;">azul</span> = disponível.</p>
+      <div class="availability-legend" style="margin-bottom:10px;">
+        <button id="select-all-btn" style="font-size:12px;padding:5px 10px;margin-right:5px;">Selecionar Tudo</button>
+        <button id="clear-all-btn" style="font-size:12px;padding:5px 10px;">Limpar Tudo</button>
+      </div>
       <div id="availability-grid" style="overflow-x:auto;">A carregar grelha...</div>
       <button id="save-availability-btn" style="margin-top:15px;background:#28a745;">💾 Guardar Disponibilidade</button>
       <p id="availability-msg" style="margin-top:10px;"></p>
@@ -56,6 +60,8 @@
 
       let currentUser = null;
       let availabilityGridData = {};
+      let isDragging = false;
+      let dragMode = null; // 'add' ou 'remove'
       console.log('driver.html carregado com sucesso');
 
       if ('serviceWorker' in navigator) {
@@ -120,7 +126,7 @@
       })();
 
       // =============================================
-      // MEUS HORÁRIOS (apenas assigned e started)
+      // MEUS HORÁRIOS
       // =============================================
       async function loadMyShifts() {
         try {
@@ -220,7 +226,6 @@
               return;
             }
 
-            // VERIFICAR estado atual do turno antes de iniciar
             const { data: currentShift, error: checkError } = await supabase
               .from('shifts')
               .select('status')
@@ -246,24 +251,15 @@
               startPhotoUrl = urlData.publicUrl;
             }
 
-            // Atualizar shift para started
-            const { error: shiftError } = await supabase
-              .from('shifts')
-              .update({ status: 'started' })
-              .eq('id', shiftId);
-
+            const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
             if (shiftError) throw shiftError;
 
-            // Criar relatório inicial
-            const { error: reportError } = await supabase
-              .from('shift_reports')
-              .insert({
-                shift_id: shiftId,
-                driver_id: currentUser.id,
-                start_km: startKm,
-                start_photo_url: startPhotoUrl
-              });
-
+            const { error: reportError } = await supabase.from('shift_reports').insert({
+              shift_id: shiftId,
+              driver_id: currentUser.id,
+              start_km: startKm,
+              start_photo_url: startPhotoUrl
+            });
             if (reportError) throw reportError;
 
             alert('Turno iniciado com sucesso!');
@@ -275,11 +271,7 @@
         });
       }
 
-      // =============================================
-      // ENCERRAR TURNO (CORRIGIDO E BLINDADO)
-      // =============================================
       function showEndShiftForm(shiftId) {
-        // Antes de mostrar o formulário, verificar se o turno ainda está "started"
         supabase
           .from('shifts')
           .select('status')
@@ -298,7 +290,6 @@
               return;
             }
 
-            // Só mostra o formulário se o turno estiver mesmo "started"
             const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
             formContainer.innerHTML = `
               <h4>🏁 Encerrar Turno</h4>
@@ -346,7 +337,6 @@
 
       async function submitEndShift(shiftId) {
         try {
-          // VERIFICAÇÃO FINAL: o turno ainda está "started"?
           const { data: currentShift, error: checkError } = await supabase
             .from('shifts')
             .select('status')
@@ -383,7 +373,6 @@
             endPhotoUrl = urlData.publicUrl;
           }
 
-          // Preparar dados de atualização
           const updateData = {
             end_km: endKm,
             fuel_litres: fuelLitres ? parseFloat(fuelLitres) : null,
@@ -398,7 +387,6 @@
 
           console.log('A encerrar turno ' + shiftId + '. Dados:', updateData);
 
-          // PASSO 1: Atualizar o relatório para fechado
           const { error: reportError } = await supabase
             .from('shift_reports')
             .update(updateData)
@@ -411,16 +399,14 @@
 
           console.log('Relatório atualizado. A atualizar shift para completed...');
 
-          // PASSO 2: Atualizar o shift para "completed"
           const { error: shiftError } = await supabase
             .from('shifts')
             .update({ status: 'completed' })
             .eq('id', shiftId)
-            .eq('status', 'started'); // GARANTIA EXTRA: só atualiza se ainda estiver "started"
+            .eq('status', 'started');
 
           if (shiftError) {
             console.error('Erro ao atualizar shift:', shiftError);
-            // Se falhou, tentar reverter o relatório?
             throw shiftError;
           }
 
@@ -432,13 +418,12 @@
         } catch (err) {
           console.error('Erro ao encerrar turno:', err);
           alert('Erro ao encerrar turno: ' + err.message);
-          // Recarregar de qualquer forma para mostrar o estado real
           loadMyShifts();
         }
       }
 
       // =============================================
-      // GRELHA DE DISPONIBILIDADE
+      // GRELHA DE DISPONIBILIDADE (30 MIN, COM ARRASTO)
       // =============================================
       async function buildAvailabilityGrid() {
         const container = document.getElementById('availability-grid');
@@ -451,6 +436,7 @@
             .eq('driver_id', currentUser.id)
             .gte('date', new Date().toISOString().split('T')[0]);
 
+          // Reiniciar dados da grelha (agora com 48 intervalos de 30 min)
           availabilityGridData = {};
           const today = new Date();
           const days = [];
@@ -461,58 +447,152 @@
             const dateStr = d.toISOString().split('T')[0];
             days.push({ date: dateStr, label: d.getDate() + '/' + (d.getMonth() + 1) });
             availabilityGridData[dateStr] = {};
-            for (let h = 0; h < 24; h++) {
-              availabilityGridData[dateStr][h] = false;
+            for (let slot = 0; slot < 48; slot++) {
+              availabilityGridData[dateStr][slot] = false;
             }
           }
 
+          // Marcar disponibilidades existentes
           (existing || []).forEach(a => {
-            const startH = parseInt(a.start_time.split(':')[0]);
-            const endH = parseInt(a.end_time.split(':')[0]);
+            const startParts = a.start_time.split(':');
+            const endParts = a.end_time.split(':');
+            const startSlot = parseInt(startParts[0]) * 2 + (parseInt(startParts[1]) >= 30 ? 1 : 0);
+            const endSlot = parseInt(endParts[0]) * 2 + (parseInt(endParts[1]) >= 30 ? 1 : 0);
             if (availabilityGridData[a.date]) {
-              for (let h = startH; h < endH; h++) {
-                availabilityGridData[a.date][h] = true;
+              for (let slot = startSlot; slot < endSlot; slot++) {
+                availabilityGridData[a.date][slot] = true;
               }
             }
           });
 
+          // Construir HTML da grelha
           let html = '<table class="availability-table"><thead><tr><th>Hora</th>';
           days.forEach(d => html += `<th>${d.label}</th>`);
           html += '</tr></thead><tbody>';
 
-          for (let h = 0; h < 24; h++) {
-            html += `<tr><td>${String(h).padStart(2, '0')}:00</td>`;
+          for (let slot = 0; slot < 48; slot++) {
+            const hour = Math.floor(slot / 2);
+            const minute = (slot % 2) * 30;
+            const timeLabel = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+            html += `<tr><td>${timeLabel}</td>`;
             days.forEach(d => {
-              const isAvail = availabilityGridData[d.date][h];
+              const isAvail = availabilityGridData[d.date][slot];
               html += `<td class="avail-cell ${isAvail ? 'avail-yes' : 'avail-no'}" 
-                           data-date="${d.date}" data-hour="${h}">${isAvail ? '✓' : ''}</td>`;
+                           data-date="${d.date}" data-slot="${slot}">${isAvail ? '✓' : ''}</td>`;
             });
             html += '</tr>';
           }
           html += '</tbody></table>';
           container.innerHTML = html;
 
-          container.querySelectorAll('.avail-cell').forEach(cell => {
-            cell.addEventListener('click', () => {
+          // === EVENTOS DE ARRASTO ===
+          const cells = container.querySelectorAll('.avail-cell');
+
+          cells.forEach(cell => {
+            cell.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              isDragging = true;
               const date = cell.dataset.date;
-              const hour = parseInt(cell.dataset.hour);
-              availabilityGridData[date][hour] = !availabilityGridData[date][hour];
-              if (availabilityGridData[date][hour]) {
-                cell.classList.add('avail-yes');
-                cell.classList.remove('avail-no');
-                cell.textContent = '✓';
-              } else {
-                cell.classList.add('avail-no');
-                cell.classList.remove('avail-yes');
-                cell.textContent = '';
+              const slot = parseInt(cell.dataset.slot);
+              // Determinar modo: se já está disponível, vamos remover; senão, vamos adicionar
+              dragMode = availabilityGridData[date][slot] ? 'remove' : 'add';
+              toggleCell(cell, date, slot);
+            });
+
+            cell.addEventListener('mouseenter', () => {
+              if (isDragging) {
+                const date = cell.dataset.date;
+                const slot = parseInt(cell.dataset.slot);
+                applyDragMode(cell, date, slot);
+              }
+            });
+
+            // Para touch (telemóvel)
+            cell.addEventListener('touchstart', (e) => {
+              e.preventDefault();
+              isDragging = true;
+              const date = cell.dataset.date;
+              const slot = parseInt(cell.dataset.slot);
+              dragMode = availabilityGridData[date][slot] ? 'remove' : 'add';
+              toggleCell(cell, date, slot);
+            });
+
+            cell.addEventListener('touchmove', (e) => {
+              if (isDragging) {
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && target.classList.contains('avail-cell')) {
+                  const date = target.dataset.date;
+                  const slot = parseInt(target.dataset.slot);
+                  applyDragMode(target, date, slot);
+                }
               }
             });
           });
+
+          // Parar arrasto
+          document.addEventListener('mouseup', () => { isDragging = false; dragMode = null; });
+          document.addEventListener('touchend', () => { isDragging = false; dragMode = null; });
+
+          function toggleCell(cell, date, slot) {
+            availabilityGridData[date][slot] = !availabilityGridData[date][slot];
+            updateCellAppearance(cell, date, slot);
+          }
+
+          function applyDragMode(cell, date, slot) {
+            if (dragMode === 'add') {
+              availabilityGridData[date][slot] = true;
+            } else if (dragMode === 'remove') {
+              availabilityGridData[date][slot] = false;
+            }
+            updateCellAppearance(cell, date, slot);
+          }
+
+          function updateCellAppearance(cell, date, slot) {
+            if (availabilityGridData[date][slot]) {
+              cell.classList.add('avail-yes');
+              cell.classList.remove('avail-no');
+              cell.textContent = '✓';
+            } else {
+              cell.classList.add('avail-no');
+              cell.classList.remove('avail-yes');
+              cell.textContent = '';
+            }
+          }
+
+          // Botões Selecionar Tudo / Limpar Tudo
+          document.getElementById('select-all-btn').addEventListener('click', () => {
+            Object.keys(availabilityGridData).forEach(date => {
+              for (let slot = 0; slot < 48; slot++) {
+                availabilityGridData[date][slot] = true;
+              }
+            });
+            container.querySelectorAll('.avail-cell').forEach(cell => {
+              cell.classList.add('avail-yes');
+              cell.classList.remove('avail-no');
+              cell.textContent = '✓';
+            });
+          });
+
+          document.getElementById('clear-all-btn').addEventListener('click', () => {
+            Object.keys(availabilityGridData).forEach(date => {
+              for (let slot = 0; slot < 48; slot++) {
+                availabilityGridData[date][slot] = false;
+              }
+            });
+            container.querySelectorAll('.avail-cell').forEach(cell => {
+              cell.classList.add('avail-no');
+              cell.classList.remove('avail-yes');
+              cell.textContent = '';
+            });
+          });
+
         } catch (err) {
           container.innerHTML = '<p class="error-msg">Erro ao carregar grelha: ' + err.message + '</p>';
         }
       }
 
+      // Guardar disponibilidade
       document.getElementById('save-availability-btn').addEventListener('click', async () => {
         try {
           const msg = document.getElementById('availability-msg');
@@ -527,18 +607,22 @@
 
           const inserts = [];
           Object.keys(availabilityGridData).forEach(date => {
-            let startHour = null;
-            for (let h = 0; h <= 24; h++) {
-              if (availabilityGridData[date][h] && startHour === null) {
-                startHour = h;
-              } else if (!availabilityGridData[date][h] && startHour !== null) {
+            let startSlot = null;
+            for (let slot = 0; slot <= 48; slot++) {
+              if (availabilityGridData[date][slot] && startSlot === null) {
+                startSlot = slot;
+              } else if (!availabilityGridData[date][slot] && startSlot !== null) {
+                const startHour = Math.floor(startSlot / 2);
+                const startMin = (startSlot % 2) * 30;
+                const endHour = Math.floor(slot / 2);
+                const endMin = (slot % 2) * 30;
                 inserts.push({
                   driver_id: currentUser.id,
                   date: date,
-                  start_time: String(startHour).padStart(2, '0') + ':00',
-                  end_time: String(h).padStart(2, '0') + ':00'
+                  start_time: String(startHour).padStart(2, '0') + ':' + String(startMin).padStart(2, '0'),
+                  end_time: String(endHour).padStart(2, '0') + ':' + String(endMin).padStart(2, '0')
                 });
-                startHour = null;
+                startSlot = null;
               }
             }
           });
