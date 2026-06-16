@@ -325,6 +325,13 @@ button:disabled {
   background: #c82333 !important;
 }
 
+.select-avail-btn {
+  background: #007bff !important;
+  color: white !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+}
+
 /* =============================================
    BOTÕES DE CÂMARA
    ============================================= */
@@ -552,6 +559,62 @@ button:disabled {
 .status-completed {
   background: #d4edda;
   color: #155724;
+}
+
+/* =============================================
+   GRELHA DE DISPONIBILIDADE
+   ============================================= */
+.availability-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 600px;
+}
+
+.availability-table th {
+  background: #007bff;
+  color: white;
+  padding: 6px;
+  text-align: center;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+}
+
+.availability-table td {
+  border: 1px solid #dee2e6;
+  padding: 4px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.avail-cell {
+  width: 30px;
+  height: 25px;
+  transition: background 0.1s;
+}
+
+.avail-yes {
+  background: #cce5ff;
+  color: #004085;
+  font-weight: bold;
+}
+
+.avail-no {
+  background: #f8f9fa;
+}
+
+.avail-cell:hover {
+  background: #b8daff;
+}
+
+.avail-row {
+  cursor: pointer;
+}
+
+.avail-row:hover {
+  background: #e8f4fd;
 }
 
 /* =============================================

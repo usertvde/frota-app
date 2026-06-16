@@ -25,34 +25,19 @@
       <button class="tab" data-tab="history">📋 Histórico</button>
     </div>
 
-    <!-- Painel Horários -->
     <div id="my-shifts-panel" class="panel active">
       <h2>Horários de Hoje e Futuros</h2>
       <div id="shifts-today">A carregar...</div>
     </div>
 
-    <!-- Painel Disponibilidade -->
     <div id="availability-panel" class="panel">
-      <h2>Definir Disponibilidade</h2>
-      <form id="availability-form">
-        <label>📅 Data:
-          <input type="date" id="av-date" required>
-        </label>
-        <div class="time-row">
-          <label>🕐 Hora início:
-            <input type="time" id="av-start" required>
-          </label>
-          <label>🕐 Hora fim:
-            <input type="time" id="av-end" required>
-          </label>
-        </div>
-        <button type="submit">➕ Adicionar Disponibilidade</button>
-      </form>
-      <h3>📋 Minhas Disponibilidades</h3>
-      <div id="availability-list">A carregar...</div>
+      <h2>Definir Disponibilidade (Próximos 30 dias)</h2>
+      <p style="font-size:14px;color:#666;">Clique nas horas para as marcar como disponíveis. Depois clique em "Guardar Disponibilidade".</p>
+      <div id="availability-grid" style="overflow-x:auto;">A carregar grelha...</div>
+      <button id="save-availability-btn" style="margin-top:15px;background:#28a745;">💾 Guardar Disponibilidade</button>
+      <p id="availability-msg" style="margin-top:10px;"></p>
     </div>
 
-    <!-- Painel Histórico -->
     <div id="history-panel" class="panel">
       <h2>Histórico de Turnos</h2>
       <div id="history-list">A carregar...</div>
@@ -70,20 +55,18 @@
       }
 
       let currentUser = null;
+      let availabilityGridData = {};
       console.log('driver.html carregado com sucesso');
 
-      // ---------- SERVICE WORKER ----------
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');
       }
 
-      // ---------- LOGOUT ----------
       document.getElementById('logout-btn').addEventListener('click', async () => {
         await supabase.auth.signOut();
         window.location.href = 'index.html';
       });
 
-      // ---------- TABS ----------
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -93,12 +76,11 @@
           const panel = document.getElementById(panelId);
           if (panel) panel.classList.add('active');
           if (tab.dataset.tab === 'my-shifts') loadMyShifts();
-          if (tab.dataset.tab === 'availability') loadAvailability();
+          if (tab.dataset.tab === 'availability') buildAvailabilityGrid();
           if (tab.dataset.tab === 'history') loadHistory();
         });
       });
 
-      // ---------- INICIALIZAÇÃO ----------
       (async () => {
         try {
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -130,22 +112,18 @@
           }
 
           await loadMyShifts();
-          await loadAvailability();
           await loadHistory();
-          setupAvailabilityForm();
         } catch (err) {
           console.error('Erro na inicialização:', err);
           alert('Erro ao inicializar: ' + err.message);
         }
       })();
 
-      // ---------- MEUS HORÁRIOS (apenas assigned e started) ----------
       async function loadMyShifts() {
         try {
           const today = new Date().toISOString().split('T')[0];
           console.log('Carregando horários a partir de:', today);
-          
-          // APENAS turnos "assigned" e "started" (exclui "completed")
+
           const { data: shifts, error } = await supabase
             .from('shifts')
             .select('*, vehicles(*)')
@@ -176,7 +154,7 @@
             card.innerHTML = `
               <div class="shift-info">
                 <strong>🚗 ${s.vehicles?.brand || ''} ${s.vehicles?.model || ''} (${s.vehicles?.license_plate || 'N/A'})</strong>
-                <span>📅 ${s.date} | 🕐 ${s.start_time} - ${s.end_time}</span>
+                <span>📅 ${s.date} | 🕐 ${s.start_time?.substring(0,5)} - ${s.end_time?.substring(0,5)}</span>
                 <span class="status-badge status-${s.status}">${statusText}</span>
               </div>
               <div class="shift-actions"></div>
@@ -197,7 +175,6 @@
               btn.addEventListener('click', () => showEndShiftForm(s.id));
               actionsDiv.appendChild(btn);
             }
-            // "completed" já não aparece aqui
 
             container.appendChild(card);
           });
@@ -220,13 +197,12 @@
                 📷 Tirar Foto Inicial
               </button>
               <span id="start-photo-name-${shiftId}" class="photo-name"></span>
-              <input type="file" id="start-photo-${shiftId}" accept="image/*" capture="environment" class="file-input-hidden" style="display:none;">
+              <input type="file" id="start-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
             </div>
             <button type="submit">✅ Confirmar Início do Turno</button>
           </form>
         `;
 
-        // Mostrar nome do ficheiro quando selecionado
         document.getElementById(`start-photo-${shiftId}`).addEventListener('change', function() {
           const fileName = this.files[0] ? this.files[0].name : '';
           document.getElementById(`start-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
@@ -241,6 +217,19 @@
               return;
             }
 
+            const { data: currentShift, error: checkError } = await supabase
+              .from('shifts')
+              .select('status')
+              .eq('id', shiftId)
+              .single();
+
+            if (checkError) throw checkError;
+            if (currentShift.status !== 'assigned') {
+              alert('Este turno já não pode ser iniciado. Recarregue a página.');
+              loadMyShifts();
+              return;
+            }
+
             const photoFile = document.getElementById(`start-photo-${shiftId}`).files[0];
             let startPhotoUrl = null;
 
@@ -251,20 +240,6 @@
               if (uploadError) throw uploadError;
               const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
               startPhotoUrl = urlData.publicUrl;
-            }
-
-            // Verificar se o turno ainda está "assigned" antes de iniciar
-            const { data: currentShift, error: checkError } = await supabase
-              .from('shifts')
-              .select('status')
-              .eq('id', shiftId)
-              .single();
-            
-            if (checkError) throw checkError;
-            if (currentShift.status !== 'assigned') {
-              alert('Este turno já não pode ser iniciado. Recarregue a página.');
-              loadMyShifts();
-              return;
             }
 
             const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
@@ -315,13 +290,12 @@
                 📷 Tirar Foto Final
               </button>
               <span id="end-photo-name-${shiftId}" class="photo-name"></span>
-              <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" class="file-input-hidden" style="display:none;">
+              <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
             </div>
             <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
           </form>
         `;
 
-        // Mostrar nome do ficheiro quando selecionado
         document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
           const fileName = this.files[0] ? this.files[0].name : '';
           document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
@@ -330,13 +304,12 @@
         document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
           e.preventDefault();
           try {
-            // Verificar se o turno ainda está "started" antes de encerrar
             const { data: currentShift, error: checkError } = await supabase
               .from('shifts')
               .select('status')
               .eq('id', shiftId)
               .single();
-            
+
             if (checkError) throw checkError;
             if (currentShift.status !== 'started') {
               alert('Este turno já foi encerrado ou não pode ser encerrado. Recarregue a página.');
@@ -381,7 +354,6 @@
 
             console.log('A encerrar turno. Dados:', updateData);
 
-            // Atualizar o relatório
             const { error: reportError } = await supabase
               .from('shift_reports')
               .update(updateData)
@@ -392,7 +364,6 @@
               throw reportError;
             }
 
-            // Atualizar o estado do shift para "completed"
             const { error: shiftError } = await supabase
               .from('shifts')
               .update({ status: 'completed' })
@@ -413,95 +384,122 @@
         });
       }
 
-      // ---------- DISPONIBILIDADE ----------
-      async function loadAvailability() {
+      async function buildAvailabilityGrid() {
+        const container = document.getElementById('availability-grid');
+        container.innerHTML = '<p>A carregar grelha...</p>';
+
         try {
-          const { data, error } = await supabase
+          const { data: existing } = await supabase
             .from('driver_availability')
             .select('*')
             .eq('driver_id', currentUser.id)
-            .order('date', { ascending: true });
+            .gte('date', new Date().toISOString().split('T')[0]);
 
-          if (error) throw error;
+          availabilityGridData = {};
+          const today = new Date();
+          const days = [];
 
-          const container = document.getElementById('availability-list');
-          if (!data || data.length === 0) {
-            container.innerHTML = '<p class="empty-msg">Nenhuma disponibilidade registada. Adicione acima.</p>';
-            return;
+          for (let i = 0; i < 30; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + i);
+            const dateStr = d.toISOString().split('T')[0];
+            days.push({ date: dateStr, label: d.getDate() + '/' + (d.getMonth() + 1) });
+            availabilityGridData[dateStr] = {};
+            for (let h = 0; h < 24; h++) {
+              availabilityGridData[dateStr][h] = false;
+            }
           }
 
-          container.innerHTML = data.map(a => `
-            <div class="card availability-card">
-              <div class="availability-info">
-                <span><strong>📅 ${a.date}</strong></span>
-                <span>🕐 ${a.start_time} - ${a.end_time}</span>
-              </div>
-              <button class="delete-btn-sm" data-delete-availability="${a.id}">🗑️ Remover</button>
-            </div>
-          `).join('');
+          (existing || []).forEach(a => {
+            const startH = parseInt(a.start_time.split(':')[0]);
+            const endH = parseInt(a.end_time.split(':')[0]);
+            if (availabilityGridData[a.date]) {
+              for (let h = startH; h < endH; h++) {
+                availabilityGridData[a.date][h] = true;
+              }
+            }
+          });
 
-          container.querySelectorAll('[data-delete-availability]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-              if (confirm('Remover esta disponibilidade?')) {
-                const { error: deleteError } = await supabase.from('driver_availability').delete().eq('id', btn.dataset.deleteAvailability);
-                if (deleteError) {
-                  alert('Erro ao remover: ' + deleteError.message);
-                } else {
-                  loadAvailability();
-                }
+          let html = '<table class="availability-table"><thead><tr><th>Hora</th>';
+          days.forEach(d => html += `<th>${d.label}</th>`);
+          html += '</tr></thead><tbody>';
+
+          for (let h = 0; h < 24; h++) {
+            html += `<tr><td>${String(h).padStart(2, '0')}:00</td>`;
+            days.forEach(d => {
+              const isAvail = availabilityGridData[d.date][h];
+              html += `<td class="avail-cell ${isAvail ? 'avail-yes' : 'avail-no'}" 
+                           data-date="${d.date}" data-hour="${h}">${isAvail ? '✓' : ''}</td>`;
+            });
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+          container.innerHTML = html;
+
+          container.querySelectorAll('.avail-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+              const date = cell.dataset.date;
+              const hour = parseInt(cell.dataset.hour);
+              availabilityGridData[date][hour] = !availabilityGridData[date][hour];
+              if (availabilityGridData[date][hour]) {
+                cell.classList.add('avail-yes');
+                cell.classList.remove('avail-no');
+                cell.textContent = '✓';
+              } else {
+                cell.classList.add('avail-no');
+                cell.classList.remove('avail-yes');
+                cell.textContent = '';
               }
             });
           });
         } catch (err) {
-          console.error('Erro ao carregar disponibilidade:', err);
-          document.getElementById('availability-list').innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
+          container.innerHTML = '<p class="error-msg">Erro ao carregar grelha: ' + err.message + '</p>';
         }
       }
 
-      function setupAvailabilityForm() {
-        document.getElementById('availability-form').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          try {
-            const date = document.getElementById('av-date').value;
-            const start = document.getElementById('av-start').value;
-            const end = document.getElementById('av-end').value;
+      document.getElementById('save-availability-btn').addEventListener('click', async () => {
+        try {
+          const msg = document.getElementById('availability-msg');
+          msg.textContent = 'A guardar...';
+          msg.style.color = '#666';
 
-            if (!date || !start || !end) {
-              alert('Preencha todos os campos.');
-              return;
-            }
+          await supabase
+            .from('driver_availability')
+            .delete()
+            .eq('driver_id', currentUser.id)
+            .gte('date', new Date().toISOString().split('T')[0]);
 
-            if (start >= end) {
-              alert('A hora de início deve ser anterior à hora de fim.');
-              return;
-            }
-
-            const { error } = await supabase.from('driver_availability').insert({
-              driver_id: currentUser.id,
-              date: date,
-              start_time: start,
-              end_time: end
-            });
-
-            if (error) {
-              if (error.message.includes('duplicate key')) {
-                alert('Já existe uma disponibilidade registada para esta data e hora.');
-              } else {
-                throw error;
+          const inserts = [];
+          Object.keys(availabilityGridData).forEach(date => {
+            let startHour = null;
+            for (let h = 0; h <= 24; h++) {
+              if (availabilityGridData[date][h] && startHour === null) {
+                startHour = h;
+              } else if (!availabilityGridData[date][h] && startHour !== null) {
+                inserts.push({
+                  driver_id: currentUser.id,
+                  date: date,
+                  start_time: String(startHour).padStart(2, '0') + ':00',
+                  end_time: String(h).padStart(2, '0') + ':00'
+                });
+                startHour = null;
               }
-            } else {
-              document.getElementById('availability-form').reset();
-              await loadAvailability();
-              alert('Disponibilidade adicionada com sucesso!');
             }
-          } catch (err) {
-            console.error('Erro ao adicionar disponibilidade:', err);
-            alert('Erro: ' + err.message);
-          }
-        });
-      }
+          });
 
-      // ---------- HISTÓRICO ----------
+          if (inserts.length > 0) {
+            const { error } = await supabase.from('driver_availability').insert(inserts);
+            if (error) throw error;
+          }
+
+          msg.textContent = 'Disponibilidade guardada com sucesso!';
+          msg.style.color = 'green';
+        } catch (err) {
+          document.getElementById('availability-msg').textContent = 'Erro: ' + err.message;
+          document.getElementById('availability-msg').style.color = 'red';
+        }
+      });
+
       async function loadHistory() {
         try {
           const { data, error } = await supabase
@@ -520,7 +518,7 @@
 
           container.innerHTML = data.map(r => {
             const distance = (r.start_km && r.end_km) ? (r.end_km - r.start_km) : null;
-            
+
             return `
               <div class="card history-card">
                 <div class="history-info">
@@ -561,7 +559,6 @@
         }
       }
 
-      // ---------- UTILITÁRIO: COMPRESSÃO DE IMAGEM ----------
       function compressImage(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
