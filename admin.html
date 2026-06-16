@@ -24,7 +24,6 @@
       <button class="tab" data-tab="drivers">👥 Colaboradores</button>
       <button class="tab" data-tab="shifts">📅 Horários</button>
       <button class="tab" data-tab="reports">📊 Relatórios</button>
-      <button class="tab" data-tab="bi">📈 BI</button>
       <button class="tab" data-tab="settings">⚙️ Definições</button>
     </div>
 
@@ -106,29 +105,6 @@
       <div id="report-output"></div>
     </div>
 
-    <!-- Painel BI -->
-    <div id="bi-panel" class="panel">
-      <h2>Business Intelligence</h2>
-      <div class="filter-row">
-        <label>📅 Data início:
-          <input type="date" id="bi-start">
-        </label>
-        <label>📅 Data fim:
-          <input type="date" id="bi-end">
-        </label>
-        <label>👤 Colaborador:
-          <select id="bi-driver">
-            <option value="">Todos</option>
-          </select>
-        </label>
-      </div>
-      <div class="button-row">
-        <button id="generate-bi">📊 Gerar BI</button>
-        <button id="export-bi-excel" class="export-btn">📥 Exportar Excel</button>
-      </div>
-      <div id="bi-output"></div>
-    </div>
-
     <!-- Painel Definições -->
     <div id="settings-panel" class="panel">
       <h2>Definições do Administrador</h2>
@@ -159,7 +135,6 @@
       if (!supabase) { document.body.innerHTML = '<h1 style="color:red;text-align:center;padding:20px;">Erro: Sistema não inicializado.</h1>'; return; }
       let sessionToken = '';
       let currentReportData = [];
-      let currentBIData = [];
 
       console.log('admin.html carregado');
 
@@ -184,7 +159,6 @@
           document.getElementById(panelId).classList.add('active');
           if (tab.dataset.tab === 'shifts') loadShiftsAndAvailability();
           if (tab.dataset.tab === 'reports') loadReportDropdowns();
-          if (tab.dataset.tab === 'bi') loadBIDropdowns();
         });
       });
 
@@ -463,46 +437,12 @@
         document.getElementById('report-output').innerHTML = html;
       }
 
-      document.getElementById('export-excel').addEventListener('click', () => exportToCSV(currentReportData, 'relatorio_turnos'));
-
-      // ---------- BI ----------
-      async function loadBIDropdowns() {
-        const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
-        document.getElementById('bi-driver').innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
-      }
-
-      document.getElementById('generate-bi').addEventListener('click', async () => {
-        const start = document.getElementById('bi-start').value;
-        const end = document.getElementById('bi-end').value;
-        const driverId = document.getElementById('bi-driver').value || null;
-        const { data, error } = await supabase.rpc('get_bi_data', { p_start_date: start, p_end_date: end, p_driver_id: driverId });
-        if (error) { alert('Erro: ' + error.message); return; }
-        currentBIData = data || [];
-        renderBITable(currentBIData);
+      document.getElementById('export-excel').addEventListener('click', () => {
+        if (!currentReportData || currentReportData.length === 0) { alert('Sem dados para exportar.'); return; }
+        exportToCSV(currentReportData, 'relatorio_turnos');
       });
 
-      function renderBITable(data) {
-        if (!data || data.length === 0) {
-          document.getElementById('bi-output').innerHTML = '<p class="empty-msg">Nenhum resultado encontrado.</p>';
-          return;
-        }
-        let html = '<div class="table-wrapper"><table><thead><tr><th>Colaborador</th><th>Turnos</th><th>Cumpridos</th><th>Taxa</th><th>Km</th><th>Comb. (L)</th><th>Custo (€)</th><th>Fat. (€)</th><th>Lucro (€)</th></tr></thead><tbody>';
-        data.forEach(r => {
-          html += `<tr>
-            <td>${r.driver_name}</td><td>${r.total_shifts}</td><td>${r.completed_shifts}</td><td>${r.completion_rate}%</td>
-            <td>${r.total_km}</td><td>${r.total_fuel_litres}</td><td>${r.total_fuel_cost}</td><td>${r.total_invoiced}</td>
-            <td style="color:${r.profit >= 0 ? 'green' : 'red'}">${r.profit}€</td>
-          </tr>`;
-        });
-        html += '</tbody></table></div>';
-        document.getElementById('bi-output').innerHTML = html;
-      }
-
-      document.getElementById('export-bi-excel').addEventListener('click', () => exportToCSV(currentBIData, 'bi_rentabilidade'));
-
-      // ---------- EXPORTAR CSV ----------
       function exportToCSV(data, filename) {
-        if (!data || data.length === 0) { alert('Sem dados para exportar.'); return; }
         const headers = Object.keys(data[0]);
         let csv = headers.join(';') + '\n';
         data.forEach(row => {

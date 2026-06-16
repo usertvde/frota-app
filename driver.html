@@ -125,12 +125,10 @@
 
           console.log('Colaborador autenticado:', profile.full_name);
 
-          // Mostrar o número de acesso no título
           if (profile.access_number) {
             document.querySelector('.header h1').textContent += ' (Nº ' + profile.access_number + ')';
           }
 
-          // Carregar dados iniciais
           await loadMyShifts();
           await loadAvailability();
           await loadHistory();
@@ -243,11 +241,9 @@
               startPhotoUrl = urlData.publicUrl;
             }
 
-            // Atualizar shift para "started"
             const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
             if (shiftError) throw shiftError;
 
-            // Criar relatório inicial
             const { error: reportError } = await supabase.from('shift_reports').insert({
               shift_id: shiftId,
               driver_id: currentUser.id,
@@ -321,23 +317,39 @@
               endPhotoUrl = urlData.publicUrl;
             }
 
-            // Atualizar relatório do turno
-            const { error: reportError } = await supabase.from('shift_reports').update({
+            const updateData = {
               end_km: endKm,
               fuel_litres: fuelLitres ? parseFloat(fuelLitres) : null,
               fuel_cost: fuelCost ? parseFloat(fuelCost) : null,
               invoiced_amount: invoiced ? parseFloat(invoiced) : null,
               invoice_number: invoiceNum,
               notes: notes,
-              end_photo_url: endPhotoUrl,
               closed: true,
               updated_at: new Date().toISOString()
-            }).eq('shift_id', shiftId);
-            if (reportError) throw reportError;
+            };
+            if (endPhotoUrl) updateData.end_photo_url = endPhotoUrl;
 
-            // Atualizar shift para "completed"
-            const { error: shiftError } = await supabase.from('shifts').update({ status: 'completed' }).eq('id', shiftId);
-            if (shiftError) throw shiftError;
+            console.log('A encerrar turno. Dados:', updateData);
+
+            const { error: reportError } = await supabase
+              .from('shift_reports')
+              .update(updateData)
+              .eq('shift_id', shiftId);
+
+            if (reportError) {
+              console.error('Erro ao atualizar relatório:', reportError);
+              throw reportError;
+            }
+
+            const { error: shiftError } = await supabase
+              .from('shifts')
+              .update({ status: 'completed' })
+              .eq('id', shiftId);
+
+            if (shiftError) {
+              console.error('Erro ao atualizar shift:', shiftError);
+              throw shiftError;
+            }
 
             alert('Turno encerrado com sucesso!');
             loadMyShifts();

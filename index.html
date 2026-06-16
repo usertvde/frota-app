@@ -17,9 +17,15 @@
     <h1>🚛 Gestão de Frota</h1>
     
     <!-- Botão de instalação PWA -->
-    <div id="install-banner" style="display:none; background:#e8f4fd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center;">
-      <p style="margin:0 0 10px 0;">📱 Instale esta aplicação no seu dispositivo para acesso rápido</p>
-      <button id="install-btn" style="background:#28a745; font-size:16px;">Instalar Aplicação</button>
+    <div id="install-banner" style="display:none; background:#e8f4fd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; border: 2px solid #007bff;">
+      <p style="margin:0 0 10px 0; font-weight:bold;">📱 Instale esta aplicação no seu dispositivo</p>
+      <p style="margin:0 0 10px 0; font-size:14px;">Acesso rápido e funcionamento offline</p>
+      <button id="install-btn" style="background:#28a745; font-size:16px; padding:12px 30px;">📥 Instalar Aplicação</button>
+    </div>
+
+    <!-- Instruções para iOS -->
+    <div id="ios-banner" style="display:none; background:#fff3cd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; border: 1px solid #ffc107;">
+      <p style="margin:0; font-size:14px;">📱 <strong>iPhone/iPad:</strong> Toque no ícone de partilha <span style="font-size:18px;">⬆️</span> e selecione <strong>"Adicionar ao Ecrã Principal"</strong></p>
     </div>
 
     <form id="login-form">
@@ -37,7 +43,7 @@
     (function() {
       const supabase = window.supabase;
       if (!supabase) {
-        document.body.innerHTML = '<h1 style="color:red;">Erro: Sistema não inicializado. Contacte o administrador.</h1>';
+        document.body.innerHTML = '<h1 style="color:red;text-align:center;padding:20px;">Erro: Sistema não inicializado. Contacte o administrador.</h1>';
         return;
       }
 
@@ -48,63 +54,66 @@
       // =============================================
       let deferredPrompt;
 
-      // Registar o Service Worker
+      // Registar Service Worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              console.log('Service Worker registado com sucesso:', registration.scope);
-            })
-            .catch(err => {
-              console.error('Erro ao registar Service Worker:', err);
-            });
+            .then(reg => console.log('Service Worker registado:', reg.scope))
+            .catch(err => console.error('Erro ao registar Service Worker:', err));
         });
       }
 
-      // Capturar o evento de instalação PWA
+      // Detetar se é iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      // Detetar se já está instalado
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                           (typeof navigator.standalone !== 'undefined' && navigator.standalone);
+
+      if (isIOS && !isStandalone) {
+        document.getElementById('ios-banner').style.display = 'block';
+      }
+
+      // Capturar evento de instalação (Android/Desktop)
       window.addEventListener('beforeinstallprompt', (e) => {
         console.log('Evento beforeinstallprompt capturado');
-        // Prevenir que o browser mostre o diálogo automaticamente
         e.preventDefault();
-        // Guardar o evento para usar mais tarde
         deferredPrompt = e;
-        // Mostrar o banner de instalação
-        const banner = document.getElementById('install-banner');
-        if (banner) {
-          banner.style.display = 'block';
+        if (!isStandalone) {
+          document.getElementById('install-banner').style.display = 'block';
         }
+      });
+
+      // Fallback: mostrar botão após 3 segundos se o evento não disparar
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (!deferredPrompt && !isStandalone && !isIOS) {
+            document.getElementById('install-banner').style.display = 'block';
+          }
+        }, 3000);
       });
 
       // Botão de instalação
       document.getElementById('install-btn').addEventListener('click', async () => {
         if (deferredPrompt) {
-          // Mostrar o diálogo de instalação
           deferredPrompt.prompt();
-          // Esperar pela resposta do utilizador
           const { outcome } = await deferredPrompt.userChoice;
           console.log('Resultado da instalação:', outcome);
-          // Limpar o evento guardado
           deferredPrompt = null;
-          // Esconder o banner
           document.getElementById('install-banner').style.display = 'none';
+        } else if (isIOS) {
+          alert('No iPhone/iPad:\n\n1. Toque no ícone de partilha (⬆️) no Safari\n2. Selecione "Adicionar ao Ecrã Principal"\n3. Toque em "Adicionar"');
         } else {
-          // Se o evento não estiver disponível, dar instruções
-          alert('Para instalar esta aplicação:\n\n' +
-                '• Android: Abra o menu do Chrome (3 pontos) e selecione "Adicionar ao ecrã inicial"\n\n' +
-                '• iPhone/iPad: Toque no ícone de partilha (Safari) e selecione "Adicionar ao Ecrã Principal"\n\n' +
-                '• Computador: Clique no ícone de instalação na barra de endereços');
+          alert('Para instalar a aplicação:\n\n• Chrome: Menu ⋮ → "Instalar aplicação"\n• Edge: Menu ⋯ → "Aplicações" → "Instalar"\n• Computador: Ícone de instalação na barra de endereços');
         }
       });
 
-      // Esconder o banner se a app já estiver instalada
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        document.getElementById('install-banner').style.display = 'none';
-      }
-
-      // Detetar quando a app é instalada
+      // Esconder banner quando instalado
       window.addEventListener('appinstalled', () => {
         console.log('Aplicação instalada com sucesso!');
         document.getElementById('install-banner').style.display = 'none';
+        document.getElementById('ios-banner').style.display = 'none';
         deferredPrompt = null;
       });
 
@@ -119,15 +128,7 @@
             .eq('user_id', userId)
             .single();
 
-          if (error) {
-            console.error('Erro ao obter perfil:', error);
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
-            return;
-          }
-
-          if (!profile) {
-            console.error('Perfil não encontrado');
+          if (error || !profile) {
             await supabase.auth.signOut();
             window.location.href = 'index.html';
             return;
@@ -183,47 +184,60 @@
 
         let email = loginId;
 
+        // Se não for email, tentar encontrar por username ou número de acesso
         if (!loginId.includes('@')) {
           try {
+            // Primeiro tenta como nome de utilizador (admin)
             const { data: emailByUsername, error: usernameError } = await supabase.rpc('get_email_by_username', { p_username: loginId });
             
             if (!usernameError && emailByUsername) {
               email = emailByUsername;
+              console.log('Email encontrado por username:', email);
             } else {
+              // Depois tenta como número de acesso (colaborador)
               const { data: emailByAccess, error: accessError } = await supabase.rpc('get_email_by_access_number', { p_access_number: loginId });
               
               if (!accessError && emailByAccess) {
                 email = emailByAccess;
+                console.log('Email encontrado por número de acesso:', email);
               } else {
-                errorMsg.textContent = 'Utilizador não encontrado. Verifique os dados.';
+                errorMsg.textContent = 'Utilizador não encontrado. Verifique o nome de utilizador, nº de acesso ou email.';
                 return;
               }
             }
           } catch (err) {
-            errorMsg.textContent = 'Erro ao procurar utilizador.';
+            console.error('Erro ao procurar utilizador:', err);
+            errorMsg.textContent = 'Erro ao procurar utilizador. Tente novamente.';
             return;
           }
         }
 
+        // Fazer login
         try {
+          console.log('Tentando login com email:', email);
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
           if (error) {
+            console.error('Erro de autenticação:', error);
             if (error.message.includes('Invalid login credentials')) {
-              errorMsg.textContent = 'Credenciais inválidas.';
+              errorMsg.textContent = 'Credenciais inválidas. Verifique a palavra-passe.';
+            } else if (error.message.includes('Email not confirmed')) {
+              errorMsg.textContent = 'Email não confirmado. Contacte o administrador.';
             } else {
-              errorMsg.textContent = 'Erro: ' + error.message;
+              errorMsg.textContent = 'Erro de login: ' + error.message;
             }
             return;
           }
 
           if (!data || !data.user) {
-            errorMsg.textContent = 'Erro: Resposta inválida.';
+            errorMsg.textContent = 'Erro: Resposta de login inválida.';
             return;
           }
 
+          console.log('Login bem-sucedido, redirecionando...');
           await redirectBasedOnRole(data.user.id);
         } catch (err) {
+          console.error('Erro durante o login:', err);
           errorMsg.textContent = 'Erro inesperado: ' + err.message;
         }
       });
@@ -236,7 +250,7 @@
         const loginId = document.getElementById('login-id').value.trim();
         
         if (!loginId) {
-          alert('Introduza o seu identificador primeiro.');
+          alert('Introduza o seu nome de utilizador, nº de acesso ou email primeiro.');
           return;
         }
 
@@ -257,7 +271,8 @@
               }
             }
           } catch (err) {
-            alert('Erro ao procurar utilizador.');
+            console.error('Erro ao procurar email:', err);
+            alert('Erro ao procurar utilizador. Tente novamente.');
             return;
           }
         }
@@ -268,11 +283,13 @@
           });
 
           if (error) {
+            console.error('Erro ao enviar email de recuperação:', error);
             alert('Erro: ' + error.message);
           } else {
-            alert('Email de recuperação enviado para ' + email);
+            alert('Email de recuperação enviado para ' + email + '. Verifique a sua caixa de entrada.');
           }
         } catch (err) {
+          console.error('Erro na recuperação:', err);
           alert('Erro: ' + err.message);
         }
       });
