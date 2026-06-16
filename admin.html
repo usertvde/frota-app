@@ -27,6 +27,7 @@
       <button class="tab" data-tab="settings">⚙️ Definições</button>
     </div>
 
+    <!-- Painel Veículos -->
     <div id="vehicles-panel" class="panel active">
       <h2>Gestão de Veículos</h2>
       <form id="vehicle-form">
@@ -42,6 +43,7 @@
       <div id="vehicles-list">A carregar...</div>
     </div>
 
+    <!-- Painel Colaboradores -->
     <div id="drivers-panel" class="panel">
       <h2>Gestão de Colaboradores</h2>
       <form id="driver-form">
@@ -54,6 +56,7 @@
       <div id="drivers-list">A carregar...</div>
     </div>
 
+    <!-- Painel Horários -->
     <div id="shifts-panel" class="panel">
       <h2>Gestão de Horários</h2>
 
@@ -86,6 +89,7 @@
       <div id="shifts-list">A carregar...</div>
     </div>
 
+    <!-- Painel Relatórios -->
     <div id="reports-panel" class="panel">
       <h2>Relatórios de Turno</h2>
       <div class="filter-row">
@@ -105,6 +109,7 @@
       <div id="report-output"></div>
     </div>
 
+    <!-- Painel Definições -->
     <div id="settings-panel" class="panel">
       <h2>Definições do Administrador</h2>
       <form id="admin-settings-form">
@@ -136,7 +141,6 @@
       let currentReportData = [];
       let allVehiclesData = [];
       let allExistingShifts = [];
-      let currentAvailabilityData = [];
 
       console.log('admin.html carregado com sucesso');
 
@@ -181,6 +185,7 @@
         }
       })();
 
+      // ---------- VEÍCULOS ----------
       async function loadVehicles() {
         try {
           const { data, error } = await supabase.from('vehicles').select('*').order('id');
@@ -259,6 +264,7 @@
         });
       }
 
+      // ---------- COLABORADORES ----------
       async function loadDrivers() {
         try {
           const { data, error } = await supabase.from('profiles').select('*').eq('role', 'driver');
@@ -349,6 +355,7 @@
         });
       }
 
+      // ---------- HORÁRIOS ----------
       async function loadShiftsPanel() {
         try {
           const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
@@ -360,8 +367,12 @@
           const vehicleSelect = document.getElementById('admin-shift-vehicle');
           vehicleSelect.innerHTML = '<option value="">Selecione um veículo</option>' + allVehiclesData.map(v => `<option value="${v.id}">${v.brand} ${v.model} (${v.license_plate})</option>`).join('');
 
-          const { data: shifts } = await supabase.from('shifts').select('*, vehicles(license_plate, brand, model), profiles!driver_id(full_name)').order('date');
+          const { data: shifts } = await supabase
+            .from('shifts')
+            .select('*, vehicles(license_plate, brand, model), profiles!driver_id(full_name)')
+            .order('date');
           allExistingShifts = shifts || [];
+
           const shiftsContainer = document.getElementById('shifts-list');
           if (!shifts || shifts.length === 0) {
             shiftsContainer.innerHTML = '<p class="empty-msg">Nenhum horário criado.</p>';
@@ -374,9 +385,10 @@
               </div>
             `).join('');
 
+            // Event listeners para remover horário (AGORA FUNCIONA com ON DELETE CASCADE)
             shiftsContainer.querySelectorAll('[data-delete-shift]').forEach(btn => {
               btn.addEventListener('click', async () => {
-                if (confirm('Remover este horário?')) {
+                if (confirm('Remover este horário? O relatório associado também será apagado.')) {
                   const { error } = await supabase.from('shifts').delete().eq('id', btn.dataset.deleteShift);
                   if (error) {
                     alert('Erro ao remover: ' + error.message);
@@ -388,6 +400,7 @@
             });
           }
 
+          // Resetar formulário
           document.getElementById('admin-shift-date').value = '';
           document.getElementById('admin-shift-start').value = '';
           document.getElementById('admin-shift-end').value = '';
@@ -402,6 +415,7 @@
         }
       }
 
+      // Evento: selecionar colaborador para ver disponibilidades
       document.getElementById('admin-driver-select').addEventListener('change', async function() {
         const driverId = this.value;
         const gridContainer = document.getElementById('admin-availability-grid');
@@ -419,16 +433,16 @@
             .gte('date', new Date().toISOString().split('T')[0])
             .order('date');
 
-          currentAvailabilityData = avail || [];
+          const availabilityData = avail || [];
 
-          if (currentAvailabilityData.length === 0) {
+          if (availabilityData.length === 0) {
             gridContainer.innerHTML = '<p class="empty-msg">Este colaborador não tem disponibilidade registada.</p>';
             return;
           }
 
           let html = '<table class="availability-table"><thead><tr><th>Data</th><th>Horário</th><th>Ação</th></tr></thead><tbody>';
 
-          currentAvailabilityData.forEach(a => {
+          availabilityData.forEach(a => {
             const dateLabel = a.date.split('-').reverse().join('/');
             const timeLabel = a.start_time?.substring(0,5) + ' - ' + a.end_time?.substring(0,5);
 
@@ -457,47 +471,38 @@
           html += '</tbody></table>';
           gridContainer.innerHTML = html;
 
+          // Event listeners para selecionar disponibilidade
           gridContainer.querySelectorAll('.select-avail-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
               e.stopPropagation();
               const row = this.closest('tr');
-              const date = row.dataset.date;
-              const start = row.dataset.start;
-              const end = row.dataset.end;
-
-              document.getElementById('admin-shift-date').value = date;
-              document.getElementById('admin-shift-start').value = start;
-              document.getElementById('admin-shift-end').value = end;
-              document.getElementById('admin-shift-date-display').textContent = date.split('-').reverse().join('/');
-              document.getElementById('admin-shift-time-display').textContent = start?.substring(0,5) + ' - ' + end?.substring(0,5);
-              document.getElementById('create-shift-btn').disabled = false;
-
-              gridContainer.querySelectorAll('tr').forEach(r => r.style.background = '');
-              row.style.background = '#cce5ff';
-
-              checkVehicleConflict();
+              selectAvailability(row);
             });
           });
 
           gridContainer.querySelectorAll('.avail-row').forEach(row => {
             row.addEventListener('click', function() {
-              const date = this.dataset.date;
-              const start = this.dataset.start;
-              const end = this.dataset.end;
-
-              document.getElementById('admin-shift-date').value = date;
-              document.getElementById('admin-shift-start').value = start;
-              document.getElementById('admin-shift-end').value = end;
-              document.getElementById('admin-shift-date-display').textContent = date.split('-').reverse().join('/');
-              document.getElementById('admin-shift-time-display').textContent = start?.substring(0,5) + ' - ' + end?.substring(0,5);
-              document.getElementById('create-shift-btn').disabled = false;
-
-              gridContainer.querySelectorAll('tr').forEach(r => r.style.background = '');
-              this.style.background = '#cce5ff';
-
-              checkVehicleConflict();
+              selectAvailability(this);
             });
           });
+
+          function selectAvailability(row) {
+            const date = row.dataset.date;
+            const start = row.dataset.start;
+            const end = row.dataset.end;
+
+            document.getElementById('admin-shift-date').value = date;
+            document.getElementById('admin-shift-start').value = start;
+            document.getElementById('admin-shift-end').value = end;
+            document.getElementById('admin-shift-date-display').textContent = date.split('-').reverse().join('/');
+            document.getElementById('admin-shift-time-display').textContent = start?.substring(0,5) + ' - ' + end?.substring(0,5);
+            document.getElementById('create-shift-btn').disabled = false;
+
+            gridContainer.querySelectorAll('tr').forEach(r => r.style.background = '');
+            row.style.background = '#cce5ff';
+
+            checkVehicleConflict();
+          }
 
         } catch (err) {
           gridContainer.innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
@@ -528,7 +533,7 @@
         );
 
         if (conflict) {
-          warningDiv.innerHTML = `<p style="margin:0;color:#856404;">⚠️ <strong>Atenção:</strong> O veículo <strong>${vehicle.brand} ${vehicle.model} (${vehicle.license_plate})</strong> já está atribuído a <strong>${conflict.profiles?.full_name || 'outro colaborador'}</strong> neste mesmo horário.</p>`;
+          warningDiv.innerHTML = `<p style="margin:0;color:#856404;">⚠️ Veículo <strong>${vehicle.license_plate}</strong> já atribuído a <strong>${conflict.profiles?.full_name || 'outro'}</strong> neste horário.</p>`;
           warningDiv.style.display = 'block';
           createBtn.disabled = true;
         } else {
@@ -548,20 +553,18 @@
         const vehicleId = document.getElementById('admin-shift-vehicle').value;
 
         if (!driverId || !date || !start || !end || !vehicleId) {
-          alert('Preencha todos os campos. Selecione uma disponibilidade e um veículo.');
+          alert('Preencha todos os campos.');
           return;
         }
 
         const vehicle = allVehiclesData.find(v => v.id === parseInt(vehicleId));
         if (vehicle) {
           const conflict = allExistingShifts.find(s =>
-            s.date === date &&
-            s.start_time === start &&
-            s.end_time === end &&
+            s.date === date && s.start_time === start && s.end_time === end &&
             s.vehicles?.license_plate === vehicle.license_plate
           );
           if (conflict) {
-            alert(`O veículo ${vehicle.license_plate} já está atribuído a ${conflict.profiles?.full_name || 'outro colaborador'} neste horário.`);
+            alert(`Veículo ${vehicle.license_plate} já atribuído neste horário.`);
             return;
           }
         }
@@ -575,8 +578,8 @@
             end_time: end
           });
           if (error) {
-            if (error.message.includes('duplicate key') || error.message.includes('unique')) {
-              alert('Já existe um horário criado para esta disponibilidade.');
+            if (error.message.includes('duplicate key')) {
+              alert('Já existe um horário para esta disponibilidade.');
             } else {
               throw error;
             }
@@ -585,11 +588,11 @@
             loadShiftsPanel();
           }
         } catch (err) {
-          console.error('Erro ao criar horário:', err);
           alert('Erro: ' + err.message);
         }
       });
 
+      // ---------- RELATÓRIOS (COM FOTOS VISÍVEIS) ----------
       async function loadReportDropdowns() {
         const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
         document.getElementById('report-driver').innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
@@ -613,16 +616,22 @@
         }
         let html = '<div class="table-wrapper"><table><thead><tr><th>Data</th><th>Colaborador</th><th>Veículo</th><th>Km ini</th><th>Km fim</th><th>Comb. (L)</th><th>Custo (€)</th><th>Fat. (€)</th><th>Fotos</th></tr></thead><tbody>';
         data.forEach(r => {
-          const photos = [];
-          if (r.start_photo_url) photos.push(`<a href="${r.start_photo_url}" target="_blank" class="photo-link">📷 Ini</a>`);
-          if (r.end_photo_url) photos.push(`<a href="${r.end_photo_url}" target="_blank" class="photo-link">📷 Fim</a>`);
+          let photosHtml = '';
+          if (r.start_photo_url) {
+            photosHtml += `<a href="${r.start_photo_url}" target="_blank"><img src="${r.start_photo_url}" class="report-thumb" title="Foto inicial" style="width:40px;height:30px;object-fit:cover;"></a> `;
+          }
+          if (r.end_photo_url) {
+            photosHtml += `<a href="${r.end_photo_url}" target="_blank"><img src="${r.end_photo_url}" class="report-thumb" title="Foto final" style="width:40px;height:30px;object-fit:cover;"></a>`;
+          }
+          if (!photosHtml) photosHtml = '-';
+
           html += `<tr>
             <td>${r.shifts?.date || '-'}</td>
             <td>${r.shifts?.profiles?.full_name || '-'}</td>
             <td>${r.shifts?.vehicles?.license_plate || '-'}</td>
             <td>${r.start_km || '-'}</td><td>${r.end_km || '-'}</td>
             <td>${r.fuel_litres || '-'}</td><td>${r.fuel_cost || '-'}</td><td>${r.invoiced_amount || '-'}</td>
-            <td>${photos.length ? photos.join(' ') : '-'}</td>
+            <td>${photosHtml}</td>
           </tr>`;
         });
         html += '</tbody></table></div>';
@@ -652,6 +661,7 @@
         link.click();
       });
 
+      // ---------- DEFINIÇÕES ----------
       async function loadAdminSettings() {
         const { data: { user } } = await supabase.auth.getUser();
         const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
