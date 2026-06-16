@@ -172,7 +172,9 @@ label {
   color: #555;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   padding: 10px 12px;
   border: 1px solid #ced4da;
   border-radius: 6px;
@@ -180,7 +182,9 @@ input, select, textarea {
   transition: border-color 0.2s;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
   border-color: #007bff;
   box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
@@ -562,59 +566,88 @@ button:disabled {
 }
 
 /* =============================================
-   GRELHA DE DISPONIBILIDADE
+   GRELHA DE DISPONIBILIDADE COM SCROLL
    ============================================= */
+.grid-scroll-container {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.grid-wrapper {
+  position: relative;
+}
+
 .availability-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  min-width: 600px;
+  font-size: 11px;
+  min-width: 900px;
 }
 
-.availability-table th {
-  background: #007bff;
-  color: white;
-  padding: 6px;
-  text-align: center;
-  font-size: 11px;
+.availability-table thead th {
   position: sticky;
   top: 0;
+  z-index: 10;
+  background: #007bff;
+  color: white;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.availability-table .corner-cell {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 11;
+  background: #0056b3;
+}
+
+.availability-table .time-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #f8f9fa;
+  font-weight: bold;
+  text-align: center;
+  padding: 4px 6px;
+  font-size: 10px;
+  border-right: 2px solid #dee2e6;
 }
 
 .availability-table td {
-  border: 1px solid #dee2e6;
-  padding: 4px;
+  border: 1px solid #e9ecef;
+  padding: 2px;
   text-align: center;
   cursor: pointer;
   user-select: none;
-}
-
-.avail-cell {
-  width: 30px;
-  height: 25px;
+  -webkit-user-select: none;
+  width: 28px;
+  height: 22px;
   transition: background 0.1s;
 }
 
-.avail-yes {
+.avail-cell.avail-yes {
   background: #cce5ff;
   color: #004085;
   font-weight: bold;
 }
 
-.avail-no {
+.avail-cell.avail-no {
   background: #f8f9fa;
 }
 
 .avail-cell:hover {
-  background: #b8daff;
+  background: #b8daff !important;
 }
 
-.avail-row {
-  cursor: pointer;
-}
-
-.avail-row:hover {
-  background: #e8f4fd;
+.availability-legend {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
 /* =============================================
@@ -633,7 +666,8 @@ table {
   min-width: 600px;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #dee2e6;
   padding: 10px;
   text-align: left;
@@ -700,7 +734,8 @@ img {
   font-weight: 500;
 }
 
-#settings-msg, #change-pwd-msg {
+#settings-msg,
+#change-pwd-msg {
   margin-top: 10px;
   font-weight: 500;
 }
@@ -738,32 +773,33 @@ img {
     margin: 10px;
     padding: 15px;
   }
-  
+
   .header {
     flex-direction: column;
     gap: 10px;
     text-align: center;
   }
-  
+
   .tabs {
     flex-direction: column;
   }
-  
+
   .tab {
     width: 100%;
     text-align: center;
   }
-  
+
   form {
     padding: 15px;
   }
-  
+
   table {
     font-size: 12px;
     min-width: 500px;
   }
-  
-  th, td {
+
+  th,
+  td {
     padding: 6px;
   }
 
@@ -796,17 +832,21 @@ img {
   .button-row button {
     width: 100%;
   }
+
+  .grid-scroll-container {
+    max-height: 50vh;
+  }
 }
 
 @media (max-width: 480px) {
   .header h1 {
     font-size: 18px;
   }
-  
+
   button {
     width: 100%;
   }
-  
+
   .card button {
     width: auto;
   }
@@ -836,7 +876,23 @@ img {
     padding: 12px;
   }
 
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px;
+  }
+
+  .grid-scroll-container {
+    max-height: 40vh;
+  }
+
+  .availability-table {
+    font-size: 9px;
+  }
+
+  .availability-table td {
+    width: 22px;
+    height: 18px;
+    padding: 1px;
   }
 }

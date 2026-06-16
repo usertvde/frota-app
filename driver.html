@@ -32,12 +32,14 @@
 
     <div id="availability-panel" class="panel">
       <h2>Definir Disponibilidade (Próximos 30 dias)</h2>
-      <p style="font-size:14px;color:#666;">Arraste o rato sobre as células para marcar/desmarcar períodos de 30 minutos. Células a <span style="background:#cce5ff;padding:2px 6px;border-radius:3px;">azul</span> = disponível.</p>
+      <p style="font-size:14px;color:#666;">Arraste o dedo/rato sobre as células para marcar/desmarcar. Use as barras de scroll para navegar.</p>
       <div class="availability-legend" style="margin-bottom:10px;">
         <button id="select-all-btn" style="font-size:12px;padding:5px 10px;margin-right:5px;">Selecionar Tudo</button>
         <button id="clear-all-btn" style="font-size:12px;padding:5px 10px;">Limpar Tudo</button>
       </div>
-      <div id="availability-grid" style="overflow-x:auto;">A carregar grelha...</div>
+      <div class="grid-scroll-container">
+        <div id="availability-grid">A carregar grelha...</div>
+      </div>
       <button id="save-availability-btn" style="margin-top:15px;background:#28a745;">💾 Guardar Disponibilidade</button>
       <p id="availability-msg" style="margin-top:10px;"></p>
     </div>
@@ -61,7 +63,7 @@
       let currentUser = null;
       let availabilityGridData = {};
       let isDragging = false;
-      let dragMode = null; // 'add' ou 'remove'
+      let dragMode = null;
       console.log('driver.html carregado com sucesso');
 
       if ('serviceWorker' in navigator) {
@@ -126,7 +128,7 @@
       })();
 
       // =============================================
-      // MEUS HORÁRIOS
+      // MEUS HORÁRIOS (apenas assigned e started)
       // =============================================
       async function loadMyShifts() {
         try {
@@ -423,7 +425,7 @@
       }
 
       // =============================================
-      // GRELHA DE DISPONIBILIDADE (30 MIN, COM ARRASTO)
+      // GRELHA DE DISPONIBILIDADE (30 MIN, COM SCROLL)
       // =============================================
       async function buildAvailabilityGrid() {
         const container = document.getElementById('availability-grid');
@@ -436,7 +438,6 @@
             .eq('driver_id', currentUser.id)
             .gte('date', new Date().toISOString().split('T')[0]);
 
-          // Reiniciar dados da grelha (agora com 48 intervalos de 30 min)
           availabilityGridData = {};
           const today = new Date();
           const days = [];
@@ -452,12 +453,9 @@
             }
           }
 
-          // Marcar disponibilidades existentes
           (existing || []).forEach(a => {
-            const startParts = a.start_time.split(':');
-            const endParts = a.end_time.split(':');
-            const startSlot = parseInt(startParts[0]) * 2 + (parseInt(startParts[1]) >= 30 ? 1 : 0);
-            const endSlot = parseInt(endParts[0]) * 2 + (parseInt(endParts[1]) >= 30 ? 1 : 0);
+            const startSlot = parseInt(a.start_time.split(':')[0]) * 2 + (parseInt(a.start_time.split(':')[1]) >= 30 ? 1 : 0);
+            const endSlot = parseInt(a.end_time.split(':')[0]) * 2 + (parseInt(a.end_time.split(':')[1]) >= 30 ? 1 : 0);
             if (availabilityGridData[a.date]) {
               for (let slot = startSlot; slot < endSlot; slot++) {
                 availabilityGridData[a.date][slot] = true;
@@ -465,8 +463,7 @@
             }
           });
 
-          // Construir HTML da grelha
-          let html = '<table class="availability-table"><thead><tr><th>Hora</th>';
+          let html = '<div class="grid-wrapper"><table class="availability-table"><thead><tr><th class="corner-cell">Hora</th>';
           days.forEach(d => html += `<th>${d.label}</th>`);
           html += '</tr></thead><tbody>';
 
@@ -474,7 +471,7 @@
             const hour = Math.floor(slot / 2);
             const minute = (slot % 2) * 30;
             const timeLabel = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
-            html += `<tr><td>${timeLabel}</td>`;
+            html += `<tr><td class="time-cell">${timeLabel}</td>`;
             days.forEach(d => {
               const isAvail = availabilityGridData[d.date][slot];
               html += `<td class="avail-cell ${isAvail ? 'avail-yes' : 'avail-no'}" 
@@ -482,10 +479,9 @@
             });
             html += '</tr>';
           }
-          html += '</tbody></table>';
+          html += '</tbody></table></div>';
           container.innerHTML = html;
 
-          // === EVENTOS DE ARRASTO ===
           const cells = container.querySelectorAll('.avail-cell');
 
           cells.forEach(cell => {
@@ -494,7 +490,6 @@
               isDragging = true;
               const date = cell.dataset.date;
               const slot = parseInt(cell.dataset.slot);
-              // Determinar modo: se já está disponível, vamos remover; senão, vamos adicionar
               dragMode = availabilityGridData[date][slot] ? 'remove' : 'add';
               toggleCell(cell, date, slot);
             });
@@ -507,9 +502,7 @@
               }
             });
 
-            // Para touch (telemóvel)
             cell.addEventListener('touchstart', (e) => {
-              e.preventDefault();
               isDragging = true;
               const date = cell.dataset.date;
               const slot = parseInt(cell.dataset.slot);
@@ -530,7 +523,6 @@
             });
           });
 
-          // Parar arrasto
           document.addEventListener('mouseup', () => { isDragging = false; dragMode = null; });
           document.addEventListener('touchend', () => { isDragging = false; dragMode = null; });
 
@@ -540,51 +532,31 @@
           }
 
           function applyDragMode(cell, date, slot) {
-            if (dragMode === 'add') {
-              availabilityGridData[date][slot] = true;
-            } else if (dragMode === 'remove') {
-              availabilityGridData[date][slot] = false;
-            }
+            if (dragMode === 'add') availabilityGridData[date][slot] = true;
+            else if (dragMode === 'remove') availabilityGridData[date][slot] = false;
             updateCellAppearance(cell, date, slot);
           }
 
           function updateCellAppearance(cell, date, slot) {
             if (availabilityGridData[date][slot]) {
-              cell.classList.add('avail-yes');
-              cell.classList.remove('avail-no');
-              cell.textContent = '✓';
+              cell.classList.add('avail-yes'); cell.classList.remove('avail-no'); cell.textContent = '✓';
             } else {
-              cell.classList.add('avail-no');
-              cell.classList.remove('avail-yes');
-              cell.textContent = '';
+              cell.classList.add('avail-no'); cell.classList.remove('avail-yes'); cell.textContent = '';
             }
           }
 
-          // Botões Selecionar Tudo / Limpar Tudo
           document.getElementById('select-all-btn').addEventListener('click', () => {
             Object.keys(availabilityGridData).forEach(date => {
-              for (let slot = 0; slot < 48; slot++) {
-                availabilityGridData[date][slot] = true;
-              }
+              for (let slot = 0; slot < 48; slot++) availabilityGridData[date][slot] = true;
             });
-            container.querySelectorAll('.avail-cell').forEach(cell => {
-              cell.classList.add('avail-yes');
-              cell.classList.remove('avail-no');
-              cell.textContent = '✓';
-            });
+            container.querySelectorAll('.avail-cell').forEach(c => { c.classList.add('avail-yes'); c.classList.remove('avail-no'); c.textContent = '✓'; });
           });
 
           document.getElementById('clear-all-btn').addEventListener('click', () => {
             Object.keys(availabilityGridData).forEach(date => {
-              for (let slot = 0; slot < 48; slot++) {
-                availabilityGridData[date][slot] = false;
-              }
+              for (let slot = 0; slot < 48; slot++) availabilityGridData[date][slot] = false;
             });
-            container.querySelectorAll('.avail-cell').forEach(cell => {
-              cell.classList.add('avail-no');
-              cell.classList.remove('avail-yes');
-              cell.textContent = '';
-            });
+            container.querySelectorAll('.avail-cell').forEach(c => { c.classList.add('avail-no'); c.classList.remove('avail-yes'); c.textContent = ''; });
           });
 
         } catch (err) {
@@ -592,48 +564,31 @@
         }
       }
 
-      // Guardar disponibilidade
       document.getElementById('save-availability-btn').addEventListener('click', async () => {
         try {
           const msg = document.getElementById('availability-msg');
-          msg.textContent = 'A guardar...';
-          msg.style.color = '#666';
+          msg.textContent = 'A guardar...'; msg.style.color = '#666';
 
-          await supabase
-            .from('driver_availability')
-            .delete()
-            .eq('driver_id', currentUser.id)
-            .gte('date', new Date().toISOString().split('T')[0]);
+          await supabase.from('driver_availability').delete().eq('driver_id', currentUser.id).gte('date', new Date().toISOString().split('T')[0]);
 
           const inserts = [];
           Object.keys(availabilityGridData).forEach(date => {
             let startSlot = null;
             for (let slot = 0; slot <= 48; slot++) {
-              if (availabilityGridData[date][slot] && startSlot === null) {
-                startSlot = slot;
-              } else if (!availabilityGridData[date][slot] && startSlot !== null) {
-                const startHour = Math.floor(startSlot / 2);
-                const startMin = (startSlot % 2) * 30;
-                const endHour = Math.floor(slot / 2);
-                const endMin = (slot % 2) * 30;
+              if (availabilityGridData[date][slot] && startSlot === null) startSlot = slot;
+              else if (!availabilityGridData[date][slot] && startSlot !== null) {
                 inserts.push({
-                  driver_id: currentUser.id,
-                  date: date,
-                  start_time: String(startHour).padStart(2, '0') + ':' + String(startMin).padStart(2, '0'),
-                  end_time: String(endHour).padStart(2, '0') + ':' + String(endMin).padStart(2, '0')
+                  driver_id: currentUser.id, date: date,
+                  start_time: String(Math.floor(startSlot/2)).padStart(2,'0')+':'+String((startSlot%2)*30).padStart(2,'0'),
+                  end_time: String(Math.floor(slot/2)).padStart(2,'0')+':'+String((slot%2)*30).padStart(2,'0')
                 });
                 startSlot = null;
               }
             }
           });
 
-          if (inserts.length > 0) {
-            const { error } = await supabase.from('driver_availability').insert(inserts);
-            if (error) throw error;
-          }
-
-          msg.textContent = 'Disponibilidade guardada com sucesso!';
-          msg.style.color = 'green';
+          if (inserts.length > 0) { const { error } = await supabase.from('driver_availability').insert(inserts); if (error) throw error; }
+          msg.textContent = 'Disponibilidade guardada com sucesso!'; msg.style.color = 'green';
         } catch (err) {
           document.getElementById('availability-msg').textContent = 'Erro: ' + err.message;
           document.getElementById('availability-msg').style.color = 'red';
@@ -661,7 +616,6 @@
 
           container.innerHTML = data.map(r => {
             const distance = (r.start_km && r.end_km) ? (r.end_km - r.start_km) : null;
-
             return `
               <div class="card history-card">
                 <div class="history-info">
