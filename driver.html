@@ -119,6 +119,9 @@
         }
       })();
 
+      // =============================================
+      // MEUS HORÁRIOS (apenas assigned e started)
+      // =============================================
       async function loadMyShifts() {
         try {
           const today = new Date().toISOString().split('T')[0];
@@ -217,6 +220,7 @@
               return;
             }
 
+            // VERIFICAR estado atual do turno antes de iniciar
             const { data: currentShift, error: checkError } = await supabase
               .from('shifts')
               .select('status')
@@ -242,15 +246,24 @@
               startPhotoUrl = urlData.publicUrl;
             }
 
-            const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
+            // Atualizar shift para started
+            const { error: shiftError } = await supabase
+              .from('shifts')
+              .update({ status: 'started' })
+              .eq('id', shiftId);
+
             if (shiftError) throw shiftError;
 
-            const { error: reportError } = await supabase.from('shift_reports').insert({
-              shift_id: shiftId,
-              driver_id: currentUser.id,
-              start_km: startKm,
-              start_photo_url: startPhotoUrl
-            });
+            // Criar relatório inicial
+            const { error: reportError } = await supabase
+              .from('shift_reports')
+              .insert({
+                shift_id: shiftId,
+                driver_id: currentUser.id,
+                start_km: startKm,
+                start_photo_url: startPhotoUrl
+              });
+
             if (reportError) throw reportError;
 
             alert('Turno iniciado com sucesso!');
@@ -262,8 +275,78 @@
         });
       }
 
-      async function showEndShiftForm(shiftId) {
+      // =============================================
+      // ENCERRAR TURNO (CORRIGIDO E BLINDADO)
+      // =============================================
+      function showEndShiftForm(shiftId) {
+        // Antes de mostrar o formulário, verificar se o turno ainda está "started"
+        supabase
+          .from('shifts')
+          .select('status')
+          .eq('id', shiftId)
+          .single()
+          .then(({ data: currentShift, error: checkError }) => {
+            if (checkError || !currentShift) {
+              alert('Erro ao verificar turno. Recarregue a página.');
+              loadMyShifts();
+              return;
+            }
+
+            if (currentShift.status !== 'started') {
+              alert('Este turno já foi encerrado. A lista será atualizada.');
+              loadMyShifts();
+              return;
+            }
+
+            // Só mostra o formulário se o turno estiver mesmo "started"
+            const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
+            formContainer.innerHTML = `
+              <h4>🏁 Encerrar Turno</h4>
+              <form id="end-form-${shiftId}" class="inline-form">
+                <label>🔢 Km finais:
+                  <input type="number" id="end-km-${shiftId}" required placeholder="Ex: 12500">
+                </label>
+                <label>⛽ Combustível abastecido (litros):
+                  <input type="number" step="0.01" id="fuel-litres-${shiftId}" placeholder="Ex: 45.5">
+                </label>
+                <label>💰 Custo do combustível (€):
+                  <input type="number" step="0.01" id="fuel-cost-${shiftId}" placeholder="Ex: 78.90">
+                </label>
+                <label>💶 Valor faturado no turno (€):
+                  <input type="number" step="0.01" id="invoiced-${shiftId}" placeholder="Ex: 250.00">
+                </label>
+                <label>🧾 Número da fatura:
+                  <input type="text" id="invoice-num-${shiftId}" placeholder="Ex: FT-2024-001">
+                </label>
+                <label>📝 Notas do turno:
+                  <textarea id="notes-${shiftId}" rows="2" placeholder="Observações sobre o turno..."></textarea>
+                </label>
+                <div class="photo-buttons">
+                  <button type="button" class="camera-btn" onclick="document.getElementById('end-photo-${shiftId}').click()">
+                    📷 Tirar Foto Final
+                  </button>
+                  <span id="end-photo-name-${shiftId}" class="photo-name"></span>
+                  <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
+                </div>
+                <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
+              </form>
+            `;
+
+            document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
+              const fileName = this.files[0] ? this.files[0].name : '';
+              document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
+            });
+
+            document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
+              e.preventDefault();
+              await submitEndShift(shiftId);
+            });
+          });
+      }
+
+      async function submitEndShift(shiftId) {
         try {
+          // VERIFICAÇÃO FINAL: o turno ainda está "started"?
           const { data: currentShift, error: checkError } = await supabase
             .from('shifts')
             .select('status')
@@ -272,137 +355,91 @@
 
           if (checkError) throw checkError;
           if (currentShift.status !== 'started') {
-            alert('Este turno já não pode ser encerrado. Recarregue a página.');
+            alert('Este turno já foi encerrado por outra ação. A lista será atualizada.');
             loadMyShifts();
             return;
           }
-        } catch (err) {
-          console.error('Erro ao verificar status do turno antes de encerrar:', err);
-          alert('Erro ao verificar o turno. Recarregue a página e tente novamente.');
-          return;
-        }
 
-        const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
-        formContainer.innerHTML = `
-          <h4>🏁 Encerrar Turno</h4>
-          <form id="end-form-${shiftId}" class="inline-form">
-            <label>🔢 Km finais:
-              <input type="number" id="end-km-${shiftId}" required placeholder="Ex: 12500">
-            </label>
-            <label>⛽ Combustível abastecido (litros):
-              <input type="number" step="0.01" id="fuel-litres-${shiftId}" placeholder="Ex: 45.5">
-            </label>
-            <label>💰 Custo do combustível (€):
-              <input type="number" step="0.01" id="fuel-cost-${shiftId}" placeholder="Ex: 78.90">
-            </label>
-            <label>💶 Valor faturado no turno (€):
-              <input type="number" step="0.01" id="invoiced-${shiftId}" placeholder="Ex: 250.00">
-            </label>
-            <label>🧾 Número da fatura:
-              <input type="text" id="invoice-num-${shiftId}" placeholder="Ex: FT-2024-001">
-            </label>
-            <label>📝 Notas do turno:
-              <textarea id="notes-${shiftId}" rows="2" placeholder="Observações sobre o turno..."></textarea>
-            </label>
-            <div class="photo-buttons">
-              <button type="button" class="camera-btn" onclick="document.getElementById('end-photo-${shiftId}').click()">
-                📷 Tirar Foto Final
-              </button>
-              <span id="end-photo-name-${shiftId}" class="photo-name"></span>
-              <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
-            </div>
-            <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
-          </form>
-        `;
-
-        document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
-          const fileName = this.files[0] ? this.files[0].name : '';
-          document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
-        });
-
-        document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
-          e.preventDefault();
-          try {
-            const { data: currentShift, error: checkError } = await supabase
-              .from('shifts')
-              .select('status')
-              .eq('id', shiftId)
-              .single();
-
-            if (checkError) throw checkError;
-            if (currentShift.status !== 'started') {
-              alert('Este turno já foi encerrado ou não pode ser encerrado. Recarregue a página.');
-              loadMyShifts();
-              return;
-            }
-
-            const endKm = parseInt(document.getElementById(`end-km-${shiftId}`).value);
-            if (!endKm || endKm < 0) {
-              alert('Introduza um valor válido para os Km finais.');
-              return;
-            }
-
-            const fuelLitres = document.getElementById(`fuel-litres-${shiftId}`).value || null;
-            const fuelCost = document.getElementById(`fuel-cost-${shiftId}`).value || null;
-            const invoiced = document.getElementById(`invoiced-${shiftId}`).value || null;
-            const invoiceNum = document.getElementById(`invoice-num-${shiftId}`).value || null;
-            const notes = document.getElementById(`notes-${shiftId}`).value || null;
-            const photoFile = document.getElementById(`end-photo-${shiftId}`).files[0];
-            let endPhotoUrl = null;
-
-            if (photoFile) {
-              const compressed = await compressImage(photoFile);
-              const path = `uploads/${Date.now()}_${photoFile.name}`;
-              const { error: uploadError } = await supabase.storage.from('fleet-photos').upload(path, compressed);
-              if (uploadError) throw uploadError;
-              const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
-              endPhotoUrl = urlData.publicUrl;
-            }
-
-            const updateData = {
-              end_km: endKm,
-              fuel_litres: fuelLitres ? parseFloat(fuelLitres) : null,
-              fuel_cost: fuelCost ? parseFloat(fuelCost) : null,
-              invoiced_amount: invoiced ? parseFloat(invoiced) : null,
-              invoice_number: invoiceNum,
-              notes: notes,
-              closed: true,
-              updated_at: new Date().toISOString()
-            };
-            if (endPhotoUrl) updateData.end_photo_url = endPhotoUrl;
-
-            console.log('A encerrar turno. Dados:', updateData);
-
-            const { error: reportError } = await supabase
-              .from('shift_reports')
-              .update(updateData)
-              .eq('shift_id', shiftId);
-
-            if (reportError) {
-              console.error('Erro ao atualizar relatório:', reportError);
-              throw reportError;
-            }
-
-            const { error: shiftError } = await supabase
-              .from('shifts')
-              .update({ status: 'completed' })
-              .eq('id', shiftId);
-
-            if (shiftError) {
-              console.error('Erro ao atualizar shift:', shiftError);
-              throw shiftError;
-            }
-
-            alert('Turno encerrado com sucesso!');
-            loadMyShifts();
-            loadHistory();
-          } catch (err) {
-            console.error('Erro ao encerrar turno:', err);
-            alert('Erro ao encerrar turno: ' + err.message);
+          const endKm = parseInt(document.getElementById(`end-km-${shiftId}`).value);
+          if (!endKm || endKm < 0) {
+            alert('Introduza um valor válido para os Km finais.');
+            return;
           }
-        });
+
+          const fuelLitres = document.getElementById(`fuel-litres-${shiftId}`).value || null;
+          const fuelCost = document.getElementById(`fuel-cost-${shiftId}`).value || null;
+          const invoiced = document.getElementById(`invoiced-${shiftId}`).value || null;
+          const invoiceNum = document.getElementById(`invoice-num-${shiftId}`).value || null;
+          const notes = document.getElementById(`notes-${shiftId}`).value || null;
+          const photoFile = document.getElementById(`end-photo-${shiftId}`).files[0];
+          let endPhotoUrl = null;
+
+          if (photoFile) {
+            const compressed = await compressImage(photoFile);
+            const path = `uploads/${Date.now()}_${photoFile.name}`;
+            const { error: uploadError } = await supabase.storage.from('fleet-photos').upload(path, compressed);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
+            endPhotoUrl = urlData.publicUrl;
+          }
+
+          // Preparar dados de atualização
+          const updateData = {
+            end_km: endKm,
+            fuel_litres: fuelLitres ? parseFloat(fuelLitres) : null,
+            fuel_cost: fuelCost ? parseFloat(fuelCost) : null,
+            invoiced_amount: invoiced ? parseFloat(invoiced) : null,
+            invoice_number: invoiceNum,
+            notes: notes,
+            closed: true,
+            updated_at: new Date().toISOString()
+          };
+          if (endPhotoUrl) updateData.end_photo_url = endPhotoUrl;
+
+          console.log('A encerrar turno ' + shiftId + '. Dados:', updateData);
+
+          // PASSO 1: Atualizar o relatório para fechado
+          const { error: reportError } = await supabase
+            .from('shift_reports')
+            .update(updateData)
+            .eq('shift_id', shiftId);
+
+          if (reportError) {
+            console.error('Erro ao atualizar relatório:', reportError);
+            throw reportError;
+          }
+
+          console.log('Relatório atualizado. A atualizar shift para completed...');
+
+          // PASSO 2: Atualizar o shift para "completed"
+          const { error: shiftError } = await supabase
+            .from('shifts')
+            .update({ status: 'completed' })
+            .eq('id', shiftId)
+            .eq('status', 'started'); // GARANTIA EXTRA: só atualiza se ainda estiver "started"
+
+          if (shiftError) {
+            console.error('Erro ao atualizar shift:', shiftError);
+            // Se falhou, tentar reverter o relatório?
+            throw shiftError;
+          }
+
+          console.log('Shift atualizado para completed com sucesso!');
+
+          alert('Turno encerrado com sucesso!');
+          loadMyShifts();
+          loadHistory();
+        } catch (err) {
+          console.error('Erro ao encerrar turno:', err);
+          alert('Erro ao encerrar turno: ' + err.message);
+          // Recarregar de qualquer forma para mostrar o estado real
+          loadMyShifts();
+        }
       }
 
+      // =============================================
+      // GRELHA DE DISPONIBILIDADE
+      // =============================================
       async function buildAvailabilityGrid() {
         const container = document.getElementById('availability-grid');
         container.innerHTML = '<p>A carregar grelha...</p>';
@@ -519,6 +556,9 @@
         }
       });
 
+      // =============================================
+      // HISTÓRICO
+      // =============================================
       async function loadHistory() {
         try {
           const { data, error } = await supabase
