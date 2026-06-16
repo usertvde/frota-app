@@ -31,16 +31,47 @@
     </div>
 
     <div id="availability-panel" class="panel">
-      <h2>Definir Disponibilidade (Próximos 30 dias)</h2>
-      <p style="font-size:14px;color:#666;">Arraste o dedo sobre as células para marcar/desmarcar. Use as barras de scroll para navegar.</p>
-      <div class="availability-legend" style="margin-bottom:10px;">
-        <button id="select-all-btn" style="font-size:12px;padding:5px 10px;margin-right:5px;">Selecionar Tudo</button>
-        <button id="clear-all-btn" style="font-size:12px;padding:5px 10px;">Limpar Tudo</button>
+      <h2>Definir Disponibilidade</h2>
+
+      <div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:15px;">
+        <h3 style="margin-top:0;">➕ Adicionar Período</h3>
+        <form id="add-period-form" style="background:#fff;">
+          <label>📅 Dia:
+            <input type="date" id="period-date" required>
+          </label>
+          <div class="time-row">
+            <label>🕐 Hora início:
+              <input type="time" id="period-start" required>
+            </label>
+            <label>🕐 Hora fim:
+              <input type="time" id="period-end" required>
+            </label>
+          </div>
+          <button type="submit">Adicionar Período</button>
+        </form>
       </div>
-      <div class="grid-scroll-container">
-        <div id="availability-grid">A carregar grelha...</div>
+
+      <div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:15px;">
+        <h3 style="margin-top:0;">📋 Períodos Adicionados</h3>
+        <div id="periods-list">
+          <p class="empty-msg">Nenhum período adicionado.</p>
+        </div>
+        <div id="replicate-section" style="display:none;margin-top:15px;padding-top:15px;border-top:1px dashed #ccc;">
+          <h4>📅 Replicar para outros dias</h4>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="flex:1;min-width:120px;">De:
+              <input type="date" id="replicate-from">
+            </label>
+            <label style="flex:1;min-width:120px;">Até:
+              <input type="date" id="replicate-to">
+            </label>
+            <button id="replicate-btn" style="background:#17a2b8;white-space:nowrap;">📅 Replicar</button>
+          </div>
+        </div>
       </div>
-      <button id="save-availability-btn" style="margin-top:15px;background:#28a745;">💾 Guardar Disponibilidade</button>
+
+      <button id="save-availability-btn" style="background:#28a745;">💾 Guardar Disponibilidade</button>
+      <button id="clear-availability-btn" style="background:#dc3545;margin-left:10px;">🗑️ Limpar Tudo</button>
       <p id="availability-msg" style="margin-top:10px;"></p>
     </div>
 
@@ -61,9 +92,7 @@
       }
 
       let currentUser = null;
-      let availabilityGridData = {};
-      let isDragging = false;
-      let dragMode = null;
+      let availabilityPeriods = [];
       console.log('driver.html carregado com sucesso');
 
       if ('serviceWorker' in navigator) {
@@ -84,7 +113,7 @@
           const panel = document.getElementById(panelId);
           if (panel) panel.classList.add('active');
           if (tab.dataset.tab === 'my-shifts') loadMyShifts();
-          if (tab.dataset.tab === 'availability') buildAvailabilityGrid();
+          if (tab.dataset.tab === 'availability') loadAvailability();
           if (tab.dataset.tab === 'history') loadHistory();
         });
       });
@@ -425,123 +454,115 @@
       }
 
       // =============================================
-      // GRELHA DE DISPONIBILIDADE (30 MIN, COM SCROLL)
+      // DISPONIBILIDADE (NOVO SISTEMA SIMPLIFICADO)
       // =============================================
-      async function buildAvailabilityGrid() {
-        const container = document.getElementById('availability-grid');
-        container.innerHTML = '<p>A carregar grelha...</p>';
-
+      async function loadAvailability() {
         try {
           const { data: existing } = await supabase
             .from('driver_availability')
             .select('*')
             .eq('driver_id', currentUser.id)
-            .gte('date', new Date().toISOString().split('T')[0]);
+            .gte('date', new Date().toISOString().split('T')[0])
+            .order('date');
 
-          availabilityGridData = {};
-          const today = new Date();
-          const days = [];
+          availabilityPeriods = (existing || []).map(a => ({
+            date: a.date,
+            start_time: a.start_time,
+            end_time: a.end_time
+          }));
 
-          for (let i = 0; i < 30; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split('T')[0];
-            days.push({ date: dateStr, label: d.getDate() + '/' + (d.getMonth() + 1) });
-            availabilityGridData[dateStr] = {};
-            for (let slot = 0; slot < 48; slot++) {
-              availabilityGridData[dateStr][slot] = false;
-            }
-          }
-
-          (existing || []).forEach(a => {
-            const startSlot = parseInt(a.start_time.split(':')[0]) * 2 + (parseInt(a.start_time.split(':')[1]) >= 30 ? 1 : 0);
-            const endSlot = parseInt(a.end_time.split(':')[0]) * 2 + (parseInt(a.end_time.split(':')[1]) >= 30 ? 1 : 0);
-            if (availabilityGridData[a.date]) {
-              for (let slot = startSlot; slot < endSlot; slot++) {
-                availabilityGridData[a.date][slot] = true;
-              }
-            }
-          });
-
-          let html = '<div class="grid-wrapper"><table class="availability-table"><thead><tr><th class="corner-cell">Hora</th>';
-          days.forEach(d => html += `<th>${d.label}</th>`);
-          html += '</tr></thead><tbody>';
-
-          for (let slot = 0; slot < 48; slot++) {
-            const hour = Math.floor(slot / 2);
-            const minute = (slot % 2) * 30;
-            const timeLabel = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
-            html += `<tr><td class="time-cell">${timeLabel}</td>`;
-            days.forEach(d => {
-              const isAvail = availabilityGridData[d.date][slot];
-              html += `<td class="avail-cell ${isAvail ? 'avail-yes' : 'avail-no'}" 
-                           data-date="${d.date}" data-slot="${slot}">${isAvail ? '✓' : ''}</td>`;
-            });
-            html += '</tr>';
-          }
-          html += '</tbody></table></div>';
-          container.innerHTML = html;
-
-          const cells = container.querySelectorAll('.avail-cell');
-
-          cells.forEach(cell => {
-            cell.addEventListener('pointerdown', (e) => {
-              e.preventDefault();
-              isDragging = true;
-              const date = cell.dataset.date;
-              const slot = parseInt(cell.dataset.slot);
-              dragMode = availabilityGridData[date][slot] ? 'remove' : 'add';
-              toggleCell(cell, date, slot);
-            });
-
-            cell.addEventListener('pointerenter', () => {
-              if (isDragging) {
-                const date = cell.dataset.date;
-                const slot = parseInt(cell.dataset.slot);
-                applyDragMode(cell, date, slot);
-              }
-            });
-          });
-
-          document.addEventListener('pointerup', () => { isDragging = false; dragMode = null; });
-
-          function toggleCell(cell, date, slot) {
-            availabilityGridData[date][slot] = !availabilityGridData[date][slot];
-            updateCellAppearance(cell, date, slot);
-          }
-
-          function applyDragMode(cell, date, slot) {
-            if (dragMode === 'add') availabilityGridData[date][slot] = true;
-            else if (dragMode === 'remove') availabilityGridData[date][slot] = false;
-            updateCellAppearance(cell, date, slot);
-          }
-
-          function updateCellAppearance(cell, date, slot) {
-            if (availabilityGridData[date][slot]) {
-              cell.classList.add('avail-yes'); cell.classList.remove('avail-no'); cell.textContent = '✓';
-            } else {
-              cell.classList.add('avail-no'); cell.classList.remove('avail-yes'); cell.textContent = '';
-            }
-          }
-
-          document.getElementById('select-all-btn').addEventListener('click', () => {
-            Object.keys(availabilityGridData).forEach(date => {
-              for (let slot = 0; slot < 48; slot++) availabilityGridData[date][slot] = true;
-            });
-            container.querySelectorAll('.avail-cell').forEach(c => { c.classList.add('avail-yes'); c.classList.remove('avail-no'); c.textContent = '✓'; });
-          });
-
-          document.getElementById('clear-all-btn').addEventListener('click', () => {
-            Object.keys(availabilityGridData).forEach(date => {
-              for (let slot = 0; slot < 48; slot++) availabilityGridData[date][slot] = false;
-            });
-            container.querySelectorAll('.avail-cell').forEach(c => { c.classList.add('avail-no'); c.classList.remove('avail-yes'); c.textContent = ''; });
-          });
-
+          renderPeriodsList();
         } catch (err) {
-          container.innerHTML = '<p class="error-msg">Erro ao carregar grelha: ' + err.message + '</p>';
+          console.error('Erro ao carregar disponibilidade:', err);
         }
       }
+
+      function renderPeriodsList() {
+        const container = document.getElementById('periods-list');
+        const replicateSection = document.getElementById('replicate-section');
+
+        if (availabilityPeriods.length === 0) {
+          container.innerHTML = '<p class="empty-msg">Nenhum período adicionado.</p>';
+          replicateSection.style.display = 'none';
+        } else {
+          const grouped = {};
+          availabilityPeriods.forEach(p => {
+            if (!grouped[p.date]) grouped[p.date] = [];
+            grouped[p.date].push(p);
+          });
+
+          let html = '';
+          Object.keys(grouped).sort().forEach(date => {
+            const dateLabel = date.split('-').reverse().join('/');
+            html += `<div style="margin-bottom:10px;"><strong>📅 ${dateLabel}</strong>`;
+            grouped[date].forEach((p) => {
+              html += `<div style="display:flex;align-items:center;gap:10px;margin:5px 0;padding:5px;background:#fff;border-radius:4px;">
+                <span>🕐 ${p.start_time?.substring(0,5)} - ${p.end_time?.substring(0,5)}</span>
+                <button class="delete-btn-sm" data-date="${p.date}" data-start="${p.start_time}" data-end="${p.end_time}" style="margin-left:auto;">🗑️</button>
+              </div>`;
+            });
+            html += '</div>';
+          });
+          container.innerHTML = html;
+          replicateSection.style.display = 'block';
+
+          container.querySelectorAll('.delete-btn-sm').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const date = btn.dataset.date;
+              const start = btn.dataset.start;
+              const end = btn.dataset.end;
+              availabilityPeriods = availabilityPeriods.filter(p => !(p.date === date && p.start_time === start && p.end_time === end));
+              renderPeriodsList();
+            });
+          });
+        }
+      }
+
+      document.getElementById('add-period-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const date = document.getElementById('period-date').value;
+        const start = document.getElementById('period-start').value;
+        const end = document.getElementById('period-end').value;
+
+        if (!date || !start || !end) { alert('Preencha todos os campos.'); return; }
+        if (start >= end) { alert('Hora de início deve ser anterior à hora de fim.'); return; }
+
+        const duplicate = availabilityPeriods.find(p => p.date === date && p.start_time === start && p.end_time === end);
+        if (duplicate) { alert('Este período já foi adicionado.'); return; }
+
+        availabilityPeriods.push({ date, start_time: start, end_time: end });
+        availabilityPeriods.sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time));
+        renderPeriodsList();
+        e.target.reset();
+        document.getElementById('period-date').focus();
+      });
+
+      document.getElementById('replicate-btn').addEventListener('click', () => {
+        const from = document.getElementById('replicate-from').value;
+        const to = document.getElementById('replicate-to').value;
+
+        if (!from || !to) { alert('Selecione as datas de início e fim.'); return; }
+        if (from > to) { alert('A data "De" deve ser anterior à data "Até".'); return; }
+        if (availabilityPeriods.length === 0) { alert('Adicione pelo menos um período primeiro.'); return; }
+
+        const periodsToReplicate = [...availabilityPeriods];
+        const startDate = new Date(from);
+        const endDate = new Date(to);
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          periodsToReplicate.forEach(p => {
+            const exists = availabilityPeriods.find(ap => ap.date === dateStr && ap.start_time === p.start_time && ap.end_time === p.end_time);
+            if (!exists) {
+              availabilityPeriods.push({ date: dateStr, start_time: p.start_time, end_time: p.end_time });
+            }
+          });
+        }
+
+        availabilityPeriods.sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time));
+        renderPeriodsList();
+        alert('Períodos replicados com sucesso!');
+      });
 
       document.getElementById('save-availability-btn').addEventListener('click', async () => {
         try {
@@ -550,27 +571,28 @@
 
           await supabase.from('driver_availability').delete().eq('driver_id', currentUser.id).gte('date', new Date().toISOString().split('T')[0]);
 
-          const inserts = [];
-          Object.keys(availabilityGridData).forEach(date => {
-            let startSlot = null;
-            for (let slot = 0; slot <= 48; slot++) {
-              if (availabilityGridData[date][slot] && startSlot === null) startSlot = slot;
-              else if (!availabilityGridData[date][slot] && startSlot !== null) {
-                inserts.push({
-                  driver_id: currentUser.id, date: date,
-                  start_time: String(Math.floor(startSlot/2)).padStart(2,'0')+':'+String((startSlot%2)*30).padStart(2,'0'),
-                  end_time: String(Math.floor(slot/2)).padStart(2,'0')+':'+String((slot%2)*30).padStart(2,'0')
-                });
-                startSlot = null;
-              }
-            }
-          });
+          if (availabilityPeriods.length > 0) {
+            const inserts = availabilityPeriods.map(p => ({
+              driver_id: currentUser.id,
+              date: p.date,
+              start_time: p.start_time,
+              end_time: p.end_time
+            }));
+            const { error } = await supabase.from('driver_availability').insert(inserts);
+            if (error) throw error;
+          }
 
-          if (inserts.length > 0) { const { error } = await supabase.from('driver_availability').insert(inserts); if (error) throw error; }
           msg.textContent = 'Disponibilidade guardada com sucesso!'; msg.style.color = 'green';
         } catch (err) {
           document.getElementById('availability-msg').textContent = 'Erro: ' + err.message;
           document.getElementById('availability-msg').style.color = 'red';
+        }
+      });
+
+      document.getElementById('clear-availability-btn').addEventListener('click', () => {
+        if (confirm('Limpar todos os períodos adicionados?')) {
+          availabilityPeriods = [];
+          renderPeriodsList();
         }
       });
 
