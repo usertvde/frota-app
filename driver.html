@@ -139,16 +139,18 @@
         }
       })();
 
-      // ---------- MEUS HORÁRIOS ----------
+      // ---------- MEUS HORÁRIOS (apenas assigned e started) ----------
       async function loadMyShifts() {
         try {
           const today = new Date().toISOString().split('T')[0];
           console.log('Carregando horários a partir de:', today);
           
+          // APENAS turnos "assigned" e "started" (exclui "completed")
           const { data: shifts, error } = await supabase
             .from('shifts')
             .select('*, vehicles(*)')
             .eq('driver_id', currentUser.id)
+            .in('status', ['assigned', 'started'])
             .gte('date', today)
             .order('date');
 
@@ -158,19 +160,18 @@
           container.innerHTML = '';
 
           if (!shifts || shifts.length === 0) {
-            container.innerHTML = '<p class="empty-msg">Sem horários atribuídos para hoje e dias futuros.</p>';
+            container.innerHTML = '<p class="empty-msg">Sem horários ativos para hoje e dias futuros.</p>';
             return;
           }
 
-          console.log('Horários encontrados:', shifts.length);
+          console.log('Horários ativos encontrados:', shifts.length);
 
           shifts.forEach(s => {
             const card = document.createElement('div');
             card.className = 'card';
             card.id = 'shift-' + s.id;
 
-            const statusText = s.status === 'assigned' ? 'Atribuído' : 
-                               s.status === 'started' ? 'Em andamento' : 'Concluído';
+            const statusText = s.status === 'assigned' ? 'Atribuído' : 'Em andamento';
 
             card.innerHTML = `
               <div class="shift-info">
@@ -196,6 +197,7 @@
               btn.addEventListener('click', () => showEndShiftForm(s.id));
               actionsDiv.appendChild(btn);
             }
+            // "completed" já não aparece aqui
 
             container.appendChild(card);
           });
@@ -213,12 +215,22 @@
             <label>🔢 Km iniciais:
               <input type="number" id="start-km-${shiftId}" required placeholder="Ex: 12345">
             </label>
-            <label class="file-label">📷 Foto inicial (opcional):
-              <input type="file" id="start-photo-${shiftId}" accept="image/*" class="file-input">
-            </label>
+            <div class="photo-buttons">
+              <button type="button" class="camera-btn" onclick="document.getElementById('start-photo-${shiftId}').click()">
+                📷 Tirar Foto Inicial
+              </button>
+              <span id="start-photo-name-${shiftId}" class="photo-name"></span>
+              <input type="file" id="start-photo-${shiftId}" accept="image/*" capture="environment" class="file-input-hidden" style="display:none;">
+            </div>
             <button type="submit">✅ Confirmar Início do Turno</button>
           </form>
         `;
+
+        // Mostrar nome do ficheiro quando selecionado
+        document.getElementById(`start-photo-${shiftId}`).addEventListener('change', function() {
+          const fileName = this.files[0] ? this.files[0].name : '';
+          document.getElementById(`start-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
+        });
 
         document.getElementById(`start-form-${shiftId}`).addEventListener('submit', async (e) => {
           e.preventDefault();
@@ -239,6 +251,20 @@
               if (uploadError) throw uploadError;
               const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
               startPhotoUrl = urlData.publicUrl;
+            }
+
+            // Verificar se o turno ainda está "assigned" antes de iniciar
+            const { data: currentShift, error: checkError } = await supabase
+              .from('shifts')
+              .select('status')
+              .eq('id', shiftId)
+              .single();
+            
+            if (checkError) throw checkError;
+            if (currentShift.status !== 'assigned') {
+              alert('Este turno já não pode ser iniciado. Recarregue a página.');
+              loadMyShifts();
+              return;
             }
 
             const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
@@ -284,16 +310,40 @@
             <label>📝 Notas do turno:
               <textarea id="notes-${shiftId}" rows="2" placeholder="Observações sobre o turno..."></textarea>
             </label>
-            <label class="file-label">📷 Foto final (opcional):
-              <input type="file" id="end-photo-${shiftId}" accept="image/*" class="file-input">
-            </label>
+            <div class="photo-buttons">
+              <button type="button" class="camera-btn" onclick="document.getElementById('end-photo-${shiftId}').click()">
+                📷 Tirar Foto Final
+              </button>
+              <span id="end-photo-name-${shiftId}" class="photo-name"></span>
+              <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" class="file-input-hidden" style="display:none;">
+            </div>
             <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
           </form>
         `;
 
+        // Mostrar nome do ficheiro quando selecionado
+        document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
+          const fileName = this.files[0] ? this.files[0].name : '';
+          document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
+        });
+
         document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
           e.preventDefault();
           try {
+            // Verificar se o turno ainda está "started" antes de encerrar
+            const { data: currentShift, error: checkError } = await supabase
+              .from('shifts')
+              .select('status')
+              .eq('id', shiftId)
+              .single();
+            
+            if (checkError) throw checkError;
+            if (currentShift.status !== 'started') {
+              alert('Este turno já foi encerrado ou não pode ser encerrado. Recarregue a página.');
+              loadMyShifts();
+              return;
+            }
+
             const endKm = parseInt(document.getElementById(`end-km-${shiftId}`).value);
             if (!endKm || endKm < 0) {
               alert('Introduza um valor válido para os Km finais.');
@@ -331,6 +381,7 @@
 
             console.log('A encerrar turno. Dados:', updateData);
 
+            // Atualizar o relatório
             const { error: reportError } = await supabase
               .from('shift_reports')
               .update(updateData)
@@ -341,6 +392,7 @@
               throw reportError;
             }
 
+            // Atualizar o estado do shift para "completed"
             const { error: shiftError } = await supabase
               .from('shifts')
               .update({ status: 'completed' })
