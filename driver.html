@@ -262,7 +262,26 @@
         });
       }
 
-      function showEndShiftForm(shiftId) {
+      async function showEndShiftForm(shiftId) {
+        try {
+          const { data: currentShift, error: checkError } = await supabase
+            .from('shifts')
+            .select('status')
+            .eq('id', shiftId)
+            .single();
+
+          if (checkError) throw checkError;
+          if (currentShift.status !== 'started') {
+            alert('Este turno já não pode ser encerrado. Recarregue a página.');
+            loadMyShifts();
+            return;
+          }
+        } catch (err) {
+          console.error('Erro ao verificar status do turno antes de encerrar:', err);
+          alert('Erro ao verificar o turno. Recarregue a página e tente novamente.');
+          return;
+        }
+
         const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
         formContainer.innerHTML = `
           <h4>🏁 Encerrar Turno</h4>
