@@ -1,4 +1,4 @@
-const CACHE_NAME = 'frota-v3';
+const CACHE_NAME = 'frota-v4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -11,41 +11,46 @@ const urlsToCache = [
 
 // Instalar o Service Worker e guardar em cache
 self.addEventListener('install', event => {
-  console.log('Service Worker a instalar...');
+  console.log('Service Worker a instalar a versão v4...');
+  // Força o novo service worker a assumir o controlo imediatamente
+  self.skipWaiting(); 
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache aberto');
+        console.log('Cache aberto e ficheiros guardados.');
         return cache.addAll(urlsToCache);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
-// Ativar o Service Worker e limpar caches antigos
+// Ativar o Service Worker e limpar caches antigas
 self.addEventListener('activate', event => {
-  console.log('Service Worker ativado');
+  console.log('Service Worker ativado. A limpar versões antigas...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.filter(cacheName => cacheName !== CACHE_NAME)
-          .map(cacheName => caches.delete(cacheName))
+          .map(cacheName => {
+            console.log('A apagar cache antiga:', cacheName);
+            return caches.delete(cacheName);
+          })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()) // Assume o controlo de todas as páginas abertas
   );
 });
 
-// Estratégia de cache: Network First, depois cache
+// Estratégia de cache: Network First (Tenta a internet primeiro, se falhar usa a cache)
 self.addEventListener('fetch', event => {
-  // Ignorar pedidos à API do Supabase
-  if (event.request.url.includes('supabase.co')) {
+  // Ignorar pedidos à API do Supabase (dados em tempo real) e extensões do browser
+  if (event.request.url.includes('supabase.co') || event.request.url.startsWith('chrome-extension')) {
     return;
   }
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Guardar em cache se a resposta for válida
+        // Se a resposta for válida, atualiza a cache silenciosamente
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -55,7 +60,8 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Se a rede falhar, tentar servir da cache
+        // Se estiver offline ou a rede falhar, vai buscar à cache
+        console.log('Modo offline: a carregar da cache ->', event.request.url);
         return caches.match(event.request);
       })
   );
