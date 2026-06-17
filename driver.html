@@ -157,75 +157,116 @@
       })();
 
       // =============================================
-      // MEUS HORÁRIOS (apenas assigned e started)
+      // MEUS HORÁRIOS (Unificação de Disponibilidade e Turnos)
       // =============================================
       async function loadMyShifts() {
         try {
           const today = new Date().toISOString().split('T')[0];
           console.log('Carregando horários a partir de:', today);
 
-          const { data: shifts, error } = await supabase
+          // 1. Buscar disponibilidades dadas pelo condutor
+          const { data: availabilities, error: availError } = await supabase
+            .from('driver_availability')
+            .select('*')
+            .eq('driver_id', currentUser.id)
+            .gte('date', today)
+            .order('date');
+          if (availError) throw availError;
+
+          // 2. Buscar turnos atribuídos pelo admin
+          const { data: shifts, error: shiftsError } = await supabase
             .from('shifts')
             .select('*, vehicles(*)')
             .eq('driver_id', currentUser.id)
-            .in('status', ['assigned', 'started'])
             .gte('date', today)
             .order('date');
-
-          if (error) throw error;
+          if (shiftsError) throw shiftsError;
 
           const container = document.getElementById('shifts-today');
           container.innerHTML = '';
 
-          if (!shifts || shifts.length === 0) {
-            container.innerHTML = '<p class="empty-msg">Sem horários ativos para hoje e dias futuros.</p>';
+          if ((!availabilities || availabilities.length === 0) && (!shifts || shifts.length === 0)) {
+            container.innerHTML = '<p class="empty-msg">Sem horários ou disponibilidades para hoje e dias futuros.</p>';
             return;
           }
 
-          console.log('Horários ativos encontrados:', shifts.length);
+          const processedShiftIds = new Set();
+          let html = '';
 
-          shifts.forEach(s => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.id = 'shift-' + s.id;
+          // Função auxiliar para gerar o HTML de cada cartão
+          const generateCard = (avail, shift) => {
+            const date = avail ? avail.date : shift.date;
+            const start = avail ? avail.start_time : shift.start_time;
+            const end = avail ? avail.end_time : shift.end_time;
+            const dateLabel = date.split('-').reverse().join('/');
+            const timeLabel = start.substring(0,5) + ' - ' + end.substring(0,5);
 
-            const statusText = s.status === 'assigned' ? 'Atribuído' : 'Em andamento';
+            let vehicleHtml = '';
+            let statusHtml = '';
+            let actionHtml = '';
+            let cardId = '';
+            let formContainerId = '';
 
-            card.innerHTML = `
-              <div class="shift-info">
-                <strong>🚗 ${s.vehicles?.brand || ''} ${s.vehicles?.model || ''} (${s.vehicles?.license_plate || 'N/A'})</strong>
-                <span>📅 ${s.date} | 🕐 ${s.start_time?.substring(0,5)} - ${s.end_time?.substring(0,5)}</span>
-                <span class="status-badge status-${s.status}">${statusText}</span>
-              </div>
-              <div class="shift-actions"></div>
-              <div class="shift-form-container"></div>
-            `;
-
-            const actionsDiv = card.querySelector('.shift-actions');
-            if (s.status === 'assigned') {
-              const btn = document.createElement('button');
-              btn.textContent = '🚦 Iniciar Turno';
-              btn.className = 'start-btn';
-              btn.addEventListener('click', () => showStartShiftForm(s.id));
-              actionsDiv.appendChild(btn);
-            } else if (s.status === 'started') {
-              const btn = document.createElement('button');
-              btn.textContent = '🏁 Encerrar Turno';
-              btn.className = 'end-btn';
-              btn.addEventListener('click', () => showEndShiftForm(s.id));
-              actionsDiv.appendChild(btn);
+            if (shift) {
+              cardId = `shift-${shift.id}`;
+              formContainerId = `form-container-${shift.id}`;
+              vehicleHtml = `🚗 ${shift.vehicles?.brand || ''} ${shift.vehicles?.model || ''} (${shift.vehicles?.license_plate || 'N/A'})`;
+              
+              if (shift.status === 'assigned') {
+                statusHtml = `<span class="status-badge status-assigned">Atribuído</span>`;
+                actionHtml = `<button class="start-btn" onclick="window.showStartShiftForm('${shift.id}')">🚦 Iniciar Turno</button>`;
+              } else if (shift.status === 'started') {
+                statusHtml = `<span class="status-badge status-started">Em andamento</span>`;
+                actionHtml = `<button class="end-btn" onclick="window.showEndShiftForm('${shift.id}')">🏁 Encerrar Turno</button>`;
+              } else if (shift.status === 'completed') {
+                statusHtml = `<span class="status-badge status-completed">Concluído</span>`;
+                actionHtml = `<span style="font-size:13px; color:#666;">Turno encerrado. Ver histórico.</span>`;
+              }
+            } else {
+              cardId = `avail-${avail.id}`;
+              vehicleHtml = `⚠️ Sem Viatura (Livre)`;
+              statusHtml = `<span class="status-badge" style="background:#e2e3e5; color:#383d41;">Aguarda Atribuição</span>`;
+              actionHtml = `<span style="font-size:13px; color:#666;">A aguardar planeamento do administrador.</span>`;
             }
 
-            container.appendChild(card);
+            return `
+              <div class="card" id="${cardId}">
+                <div class="shift-info">
+                  <strong>${vehicleHtml}</strong>
+                  <span>📅 ${dateLabel} | 🕐 ${timeLabel}</span>
+                  ${statusHtml}
+                </div>
+                <div class="shift-actions">${actionHtml}</div>
+                <div class="shift-form-container" id="${formContainerId}" style="display:none; margin-top:12px; padding:15px; background:#f8f9fa; border-radius:6px; border:1px dashed #ced4da;"></div>
+              </div>
+            `;
+          };
+
+          // Processar as disponibilidades (e cruzar com os turnos)
+          (availabilities || []).forEach(avail => {
+            const shift = (shifts || []).find(s => s.date === avail.date && s.start_time === avail.start_time && s.end_time === avail.end_time);
+            html += generateCard(avail, shift);
+            if (shift) processedShiftIds.add(shift.id);
           });
+
+          // Processar turnos que possam existir sem disponibilidade correspondente (proteção)
+          (shifts || []).forEach(shift => {
+            if (!processedShiftIds.has(shift.id)) {
+              html += generateCard(null, shift);
+            }
+          });
+
+          container.innerHTML = html;
+
         } catch (err) {
           console.error('Erro ao carregar horários:', err);
           document.getElementById('shifts-today').innerHTML = '<p class="error-msg">Erro ao carregar horários: ' + err.message + '</p>';
         }
       }
 
-      function showStartShiftForm(shiftId) {
-        const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
+      window.showStartShiftForm = function(shiftId) {
+        const formContainer = document.getElementById(`form-container-${shiftId}`);
+        formContainer.style.display = 'block';
         formContainer.innerHTML = `
           <h4>🚦 Iniciar Turno</h4>
           <form id="start-form-${shiftId}" class="inline-form">
@@ -240,6 +281,7 @@
               <input type="file" id="start-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
             </div>
             <button type="submit">✅ Confirmar Início do Turno</button>
+            <button type="button" class="cancel-btn" style="margin-top:10px;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
           </form>
         `;
 
@@ -300,9 +342,9 @@
             alert('Erro ao iniciar turno: ' + err.message);
           }
         });
-      }
+      };
 
-      function showEndShiftForm(shiftId) {
+      window.showEndShiftForm = function(shiftId) {
         supabase
           .from('shifts')
           .select('status')
@@ -321,7 +363,8 @@
               return;
             }
 
-            const formContainer = document.querySelector(`#shift-${shiftId} .shift-form-container`);
+            const formContainer = document.getElementById(`form-container-${shiftId}`);
+            formContainer.style.display = 'block';
             formContainer.innerHTML = `
               <h4>🏁 Encerrar Turno</h4>
               <form id="end-form-${shiftId}" class="inline-form">
@@ -351,6 +394,7 @@
                   <input type="file" id="end-photo-${shiftId}" accept="image/*" capture="environment" style="display:none;">
                 </div>
                 <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
+                <button type="button" class="cancel-btn" style="margin-top:10px;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
               </form>
             `;
 
@@ -364,7 +408,7 @@
               await submitEndShift(shiftId);
             });
           });
-      }
+      };
 
       async function submitEndShift(shiftId) {
         try {
@@ -416,19 +460,12 @@
           };
           if (endPhotoUrl) updateData.end_photo_url = endPhotoUrl;
 
-          console.log('A encerrar turno ' + shiftId + '. Dados:', updateData);
-
           const { error: reportError } = await supabase
             .from('shift_reports')
             .update(updateData)
             .eq('shift_id', shiftId);
 
-          if (reportError) {
-            console.error('Erro ao atualizar relatório:', reportError);
-            throw reportError;
-          }
-
-          console.log('Relatório atualizado. A atualizar shift para completed...');
+          if (reportError) throw reportError;
 
           const { error: shiftError } = await supabase
             .from('shifts')
@@ -436,12 +473,7 @@
             .eq('id', shiftId)
             .eq('status', 'started');
 
-          if (shiftError) {
-            console.error('Erro ao atualizar shift:', shiftError);
-            throw shiftError;
-          }
-
-          console.log('Shift atualizado para completed com sucesso!');
+          if (shiftError) throw shiftError;
 
           alert('Turno encerrado com sucesso!');
           loadMyShifts();
@@ -454,7 +486,7 @@
       }
 
       // =============================================
-      // DISPONIBILIDADE (NOVO SISTEMA SIMPLIFICADO)
+      // DISPONIBILIDADE
       // =============================================
       async function loadAvailability() {
         try {
@@ -583,6 +615,7 @@
           }
 
           msg.textContent = 'Disponibilidade guardada com sucesso!'; msg.style.color = 'green';
+          await loadMyShifts(); // Atualiza a vista principal
         } catch (err) {
           document.getElementById('availability-msg').textContent = 'Erro: ' + err.message;
           document.getElementById('availability-msg').style.color = 'red';
@@ -620,7 +653,7 @@
             return `
               <div class="card history-card">
                 <div class="history-info">
-                  <strong>📅 ${r.shifts?.date || 'N/A'} | 🚗 ${r.shifts?.vehicles?.license_plate || 'N/A'}</strong>
+                  <strong>📅 ${r.shifts?.date.split('-').reverse().join('/') || 'N/A'} | 🚗 ${r.shifts?.vehicles?.license_plate || 'N/A'}</strong>
                   <span>🔢 Km: ${r.start_km || '?'} → ${r.end_km || '?'} ${distance ? '| Distância: ' + distance + ' km' : ''}</span>
                   <span>⛽ Combustível: ${r.fuel_litres || '0'} L | 💰 Custo: ${r.fuel_cost || '0'} €</span>
                   <span>💶 Faturado: ${r.invoiced_amount || '0'} € ${r.invoice_number ? '| 🧾 Fatura nº: ' + r.invoice_number : ''}</span>
