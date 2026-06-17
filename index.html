@@ -16,14 +16,17 @@
   <div class="container">
     <h1>🚛 Gestão de Frota</h1>
 
+    <!-- Banner para Android / PC -->
     <div id="install-banner" style="display:none; background:#e8f4fd; padding:20px; border-radius:12px; margin-bottom:20px; text-align:center; border: 2px solid #007bff;">
       <p style="margin:0 0 12px 0; font-weight:bold; font-size:18px;">📱 Instalar App</p>
       <p style="margin:0 0 15px 0; font-size:14px;">Toque no botão abaixo para instalar no seu dispositivo</p>
-      <button id="install-btn" style="background:#28a745; color:white; font-size:18px; padding:14px 40px; border:none; border-radius:8px; font-weight:bold; width:100%;">📥 Instalar Agora</button>
+      <button id="install-btn" style="background:#28a745; color:white; font-size:18px; padding:14px 40px; border:none; border-radius:8px; font-weight:bold; width:100%; cursor:pointer;">📥 Instalar Agora</button>
     </div>
 
+    <!-- Banner exclusivo para iOS -->
     <div id="ios-banner" style="display:none; background:#fff3cd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; border: 1px solid #ffc107;">
-      <p style="margin:0; font-size:14px;">📱 <strong>iPhone/iPad:</strong> Toque no ícone de partilha <span style="font-size:18px;">⬆️</span> no Safari e selecione <strong>"Adicionar ao Ecrã Principal"</strong></p>
+      <p style="margin:0 0 10px 0; font-weight:bold; font-size:16px;">📱 Instalar no iPhone/iPad</p>
+      <p style="margin:0; font-size:14px;">1. Toque no ícone de partilha <span style="font-size:18px;">⬆️</span> na barra do Safari<br>2. Selecione <strong>"Adicionar ao Ecrã Principal"</strong> ➕</p>
     </div>
 
     <form id="login-form">
@@ -31,8 +34,8 @@
       <input type="password" id="password" placeholder="Palavra-passe" required autocomplete="current-password">
       <button type="submit">Entrar</button>
     </form>
-    <p id="error-msg" style="color:red;"></p>
-    <p><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
+    <p id="error-msg" style="color:red; text-align:center; font-weight:bold;"></p>
+    <p style="text-align:center;"><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -48,7 +51,7 @@
       console.log('index.html carregado com sucesso');
 
       // =============================================
-      // PWA - INSTALAÇÃO DIRETA
+      // PWA - GESTÃO DE INSTALAÇÃO
       // =============================================
       let deferredPrompt;
 
@@ -58,53 +61,46 @@
           .catch(err => console.error('Erro ao registar Service Worker:', err));
       }
 
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isAndroid = /Android/.test(navigator.userAgent);
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                           (typeof navigator.standalone !== 'undefined' && navigator.standalone);
-
-      if (isIOS && !isStandalone) {
-        document.getElementById('ios-banner').style.display = 'block';
-      }
+      // Deteção de dispositivo e modo de ecrã
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
       if (isStandalone) {
+        // Já está instalada, esconde tudo
         document.getElementById('install-banner').style.display = 'none';
         document.getElementById('ios-banner').style.display = 'none';
-      }
-
-      window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('Evento beforeinstallprompt capturado');
-        e.preventDefault();
-        deferredPrompt = e;
-        if (!isStandalone) {
-          document.getElementById('install-banner').style.display = 'block';
-        }
-      });
-
-      if (!isStandalone && !isIOS) {
-        setTimeout(() => {
-          if (!deferredPrompt && document.getElementById('install-banner').style.display === 'none') {
+      } else {
+        if (isIOS) {
+          // É iOS: A Apple não permite instalação por botão. Mostra as instruções manuais.
+          document.getElementById('ios-banner').style.display = 'block';
+        } else {
+          // É Android/PC: Ouve o evento nativo para mostrar o botão apenas quando estiver pronto
+          window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('Evento beforeinstallprompt capturado e pronto.');
+            e.preventDefault();
+            deferredPrompt = e;
             document.getElementById('install-banner').style.display = 'block';
-          }
-        }, 3000);
+          });
+        }
       }
 
+      // Ação do botão de instalação (Apenas Android/PC)
       document.getElementById('install-btn').addEventListener('click', async () => {
-        if (deferredPrompt) {
+        if (!deferredPrompt) {
+          alert('A instalação automática não está disponível neste momento. Tente usar o menu do browser (⋮) e escolha "Adicionar ao ecrã principal".');
+          return;
+        }
+        try {
           deferredPrompt.prompt();
           const { outcome } = await deferredPrompt.userChoice;
           console.log('Resultado da instalação:', outcome);
+          if (outcome === 'accepted') {
+            document.getElementById('install-banner').style.display = 'none';
+          }
           deferredPrompt = null;
-          document.getElementById('install-banner').style.display = 'none';
-        } else if (isAndroid) {
-          alert('Para instalar:\n\n1. Abra o menu do Chrome (⋮)\n2. Toque em "Instalar aplicação" ou "Adicionar ao ecrã inicial"');
-        } else if (isIOS) {
-          alert('Para instalar:\n\n1. Toque no ícone de partilha (⬆️)\n2. Selecione "Adicionar ao Ecrã Principal"\n3. Toque em "Adicionar"');
-        } else {
-          alert('Para instalar:\n\n• Chrome: Menu (⋮) → "Instalar aplicação"\n• Edge: Menu (⋯) → "Aplicações" → "Instalar"\n• Computador: Ícone na barra de endereços');
+        } catch (err) {
+          console.error('Erro ao acionar prompt de instalação:', err);
         }
-        document.getElementById('install-banner').style.display = 'none';
       });
 
       window.addEventListener('appinstalled', () => {
