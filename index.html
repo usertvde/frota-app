@@ -65,41 +65,43 @@
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-      if (isStandalone) {
-        // Já está instalada, esconde tudo
-        document.getElementById('install-banner').style.display = 'none';
-        document.getElementById('ios-banner').style.display = 'none';
-      } else {
+      // Captura o evento de instalação se o browser o disparar
+      window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('Evento beforeinstallprompt capturado.');
+        e.preventDefault();
+        deferredPrompt = e;
+      });
+
+      // Lógica de exibição dos banners
+      if (!isStandalone) {
         if (isIOS) {
-          // É iOS: A Apple não permite instalação por botão. Mostra as instruções manuais.
+          // É iOS: Mostra as instruções manuais
           document.getElementById('ios-banner').style.display = 'block';
         } else {
-          // É Android/PC: Ouve o evento nativo para mostrar o botão apenas quando estiver pronto
-          window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('Evento beforeinstallprompt capturado e pronto.');
-            e.preventDefault();
-            deferredPrompt = e;
+          // É Android/PC: Força a exibição do botão após 1 segundo
+          setTimeout(() => {
             document.getElementById('install-banner').style.display = 'block';
-          });
+          }, 1000);
         }
       }
 
-      // Ação do botão de instalação (Apenas Android/PC)
+      // Ação do botão de instalação (Android/PC)
       document.getElementById('install-btn').addEventListener('click', async () => {
-        if (!deferredPrompt) {
-          alert('A instalação automática não está disponível neste momento. Tente usar o menu do browser (⋮) e escolha "Adicionar ao ecrã principal".');
-          return;
-        }
-        try {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log('Resultado da instalação:', outcome);
-          if (outcome === 'accepted') {
-            document.getElementById('install-banner').style.display = 'none';
+        if (deferredPrompt) {
+          try {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('Resultado da instalação:', outcome);
+            if (outcome === 'accepted') {
+              document.getElementById('install-banner').style.display = 'none';
+            }
+            deferredPrompt = null;
+          } catch (err) {
+            console.error('Erro ao acionar prompt de instalação:', err);
           }
-          deferredPrompt = null;
-        } catch (err) {
-          console.error('Erro ao acionar prompt de instalação:', err);
+        } else {
+          // Fallback caso o browser bloqueie o evento automático
+          alert('Para instalar a App:\n\n1. Abra o menu do browser (três pontos ⋮ no canto superior direito)\n2. Escolha "Instalar Aplicação" ou "Adicionar ao ecrã principal".');
         }
       });
 
