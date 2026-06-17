@@ -24,6 +24,7 @@
       <button class="tab" data-tab="drivers">👥 Colaboradores</button>
       <button class="tab" data-tab="shifts">📅 Horários</button>
       <button class="tab" data-tab="reports">📊 Relatórios</button>
+      <button class="tab" data-tab="payments">💰 Pagamentos</button>
       <button class="tab" data-tab="settings">⚙️ Definições</button>
     </div>
 
@@ -56,14 +57,15 @@
       <div id="drivers-list">A carregar...</div>
     </div>
 
-    <!-- Painel Horários (PLANEAMENTO DIÁRIO COM EDIÇÃO) -->
+    <!-- Painel Horários -->
     <div id="shifts-panel" class="panel">
       <h2>Planeamento Diário de Horários</h2>
 
-      <div class="filter-row" style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
-        <label style="margin: 0;">📅 Selecione o Dia para Planear:
+      <div class="filter-row" style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; align-items: flex-end;">
+        <label style="margin: 0; flex: 1;">📅 Selecione o Dia para Planear:
           <input type="date" id="admin-plan-date">
         </label>
+        <button id="export-shifts-btn" class="export-btn" style="padding: 10px 15px;">📥 Exportar Horários do Dia</button>
       </div>
 
       <div id="admin-plan-grid" style="margin-top: 20px;">
@@ -92,6 +94,40 @@
         <button id="export-excel" class="export-btn">📥 Exportar Excel</button>
       </div>
       <div id="report-output"></div>
+    </div>
+
+    <!-- Painel Pagamentos (NOVO) -->
+    <div id="payments-panel" class="panel">
+      <h2>Registo de Pagamentos</h2>
+      
+      <form id="payment-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <label style="grid-column: span 2;">👤 Colaborador:
+          <select id="p-driver" required><option value="">Selecione...</option></select>
+        </label>
+        <label>📅 Período Início: <input type="date" id="p-start" required></label>
+        <label>📅 Período Fim: <input type="date" id="p-end" required></label>
+        <label>💶 Valor Bruto (€): <input type="number" step="0.01" id="p-gross" required></label>
+        <label>💶 Valor s/ IVA (€): <input type="number" step="0.01" id="p-novat" required></label>
+        <label>🪙 Gorjetas (€): <input type="number" step="0.01" id="p-tips" value="0"></label>
+        <label>📉 Comissão Slot (€): <input type="number" step="0.01" id="p-slot" value="0"></label>
+        <label>💰 Valor a Pagar s/ IVA (€): <input type="number" step="0.01" id="p-topay-novat" required></label>
+        <label>🛡️ Seguro (€): <input type="number" step="0.01" id="p-insurance" value="0"></label>
+        <label>🏦 Total Transferir s/ IVA (€): <input type="number" step="0.01" id="p-transfer-novat" required></label>
+        <label>🏦 Total Transferir c/ IVA (€): <input type="number" step="0.01" id="p-transfer-vat" required></label>
+        <button type="submit" style="grid-column: span 2; margin-top: 10px;">💾 Guardar Pagamento</button>
+      </form>
+
+      <h3 style="margin-top: 30px; border-top: 1px dashed #ccc; padding-top: 20px;">📋 Histórico de Pagamentos</h3>
+      <div class="filter-row">
+        <label>📅 De: <input type="date" id="p-filter-start"></label>
+        <label>📅 Até: <input type="date" id="p-filter-end"></label>
+        <label>👤 Colaborador: <select id="p-filter-driver"><option value="">Todos</option></select></label>
+      </div>
+      <div class="button-row">
+        <button id="filter-payments-btn">🔍 Filtrar</button>
+        <button id="export-payments-btn" class="export-btn">📥 Exportar Pagamentos</button>
+      </div>
+      <div id="payments-list">A carregar...</div>
     </div>
 
     <!-- Painel Definições -->
@@ -124,6 +160,8 @@
       if (!supabase) { document.body.innerHTML = '<h1 style="color:red;text-align:center;padding:20px;">Erro: Sistema não inicializado. Contacte o administrador.</h1>'; return; }
       let sessionToken = '';
       let currentReportData = [];
+      let currentShiftsData = [];
+      let currentPaymentsData = [];
       let allVehiclesData = [];
 
       console.log('admin.html carregado com sucesso');
@@ -144,8 +182,10 @@
           tab.classList.add('active');
           const panelId = tab.dataset.tab + '-panel';
           document.getElementById(panelId).classList.add('active');
+          
           if (tab.dataset.tab === 'shifts') loadShiftsPanel();
           if (tab.dataset.tab === 'reports') loadReportDropdowns();
+          if (tab.dataset.tab === 'payments') { loadPaymentsDropdowns(); loadPayments(); }
         });
       });
 
@@ -367,48 +407,42 @@
         
         if (!date) {
           grid.innerHTML = '<p class="empty-msg">Selecione uma data.</p>';
+          currentShiftsData = [];
           return;
         }
 
         grid.innerHTML = '<p style="text-align:center;">A carregar planeamento...</p>';
 
         try {
-          // 1. Buscar disponibilidades
           const { data: availabilities, error: availError } = await supabase
             .from('driver_availability')
             .select('*, profiles(full_name)')
             .eq('date', date)
             .order('start_time');
-            
           if (availError) throw availError;
 
-          // 2. Buscar turnos já criados
           const { data: shifts, error: shiftsError } = await supabase
             .from('shifts')
-            .select('*, vehicles(license_plate, brand, model)')
+            .select('*, vehicles(license_plate, brand, model), profiles!driver_id(full_name)')
             .eq('date', date);
-            
           if (shiftsError) throw shiftsError;
+
+          currentShiftsData = shifts || [];
 
           if (!availabilities || availabilities.length === 0) {
             grid.innerHTML = '<p class="empty-msg">Nenhum colaborador indicou disponibilidade para este dia.</p>';
             return;
           }
 
-          // Agrupar por colaborador
           const driversMap = {};
           availabilities.forEach(a => {
             if (!driversMap[a.driver_id]) {
-              driversMap[a.driver_id] = {
-                name: a.profiles?.full_name || 'Desconhecido',
-                slots: []
-              };
+              driversMap[a.driver_id] = { name: a.profiles?.full_name || 'Desconhecido', slots: [] };
             }
             driversMap[a.driver_id].slots.push(a);
           });
 
           let html = '';
-          
           for (const [driverId, driverData] of Object.entries(driversMap)) {
             html += `<div class="card" style="margin-bottom: 15px; border-left: 4px solid #007bff; padding: 15px;">
               <h4 style="margin-top: 0; margin-bottom: 12px; color: #007bff; font-size: 16px;">👤 ${driverData.name}</h4>
@@ -422,7 +456,6 @@
                 <span style="font-weight: bold; font-size: 14px;">🕐 ${timeLabel}</span>`;
 
               if (existingShift) {
-                // MODO VISUALIZAÇÃO ATRIBUÍDO
                 html += `<div id="shift-view-${existingShift.id}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;">
                   <span style="color: #28a745; font-weight: bold; flex: 1; font-size: 14px;">✅ Atribuído: ${existingShift.vehicles?.brand} (${existingShift.vehicles?.license_plate})</span>
                   <div style="display: flex; gap: 8px;">
@@ -431,7 +464,6 @@
                   </div>
                 </div>`;
 
-                // MODO EDIÇÃO (Oculto por defeito)
                 let editVehicleOptions = '<option value="">Selecione a Viatura...</option>';
                 allVehiclesData.forEach(v => {
                   const isVehicleUsed = shifts.find(s => s.vehicle_id === v.id && s.start_time === slot.start_time && s.end_time === slot.end_time && s.id !== existingShift.id);
@@ -452,7 +484,6 @@
                 </div>`;
 
               } else {
-                // MODO NÃO ATRIBUÍDO (Sem Viatura)
                 let vehicleOptions = '<option value="">Selecione a Viatura...</option>';
                 allVehiclesData.forEach(v => {
                   const isVehicleUsed = shifts.find(s => s.vehicle_id === v.id && s.start_time === slot.start_time && s.end_time === slot.end_time);
@@ -513,7 +544,6 @@
         }
       }
 
-      // Funções globais para botões inline
       window.assignShift = async (driverId, date, startTime, endTime, slotId) => {
         const vehicleId = document.getElementById(`veh-select-${slotId}`).value;
         if (!vehicleId) { alert('Selecione uma viatura na lista primeiro.'); return; }
@@ -558,6 +588,30 @@
         } catch (err) { alert('Erro ao remover turno: ' + err.message); }
       };
 
+      // Exportar Horários
+      document.getElementById('export-shifts-btn').addEventListener('click', () => {
+        if (!currentShiftsData || currentShiftsData.length === 0) { alert('Não há horários atribuídos para o dia selecionado.'); return; }
+        const date = document.getElementById('admin-plan-date').value;
+        const headers = ['Data', 'Colaborador', 'Viatura', 'Matrícula', 'Hora Início', 'Hora Fim', 'Estado'];
+        let csv = headers.join(';') + '\n';
+        currentShiftsData.forEach(s => {
+          csv += [
+            s.date || '',
+            s.profiles?.full_name || '',
+            `${s.vehicles?.brand || ''} ${s.vehicles?.model || ''}`,
+            s.vehicles?.license_plate || '',
+            s.start_time || '',
+            s.end_time || '',
+            s.status || ''
+          ].join(';') + '\n';
+        });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `horarios_${date}.csv`;
+        link.click();
+      });
+
       // ---------- RELATÓRIOS ----------
       async function loadReportDropdowns() {
         const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
@@ -584,20 +638,20 @@
         data.forEach(r => {
           let photosHtml = '';
           if (r.start_photo_url) {
-            photosHtml += `<a href="${r.start_photo_url}" target="_blank"><img src="${r.start_photo_url}" class="report-thumb" title="Foto inicial" style="width:40px;height:30px;object-fit:cover;"></a> `;
+            photosHtml += `<a href="${r.start_photo_url}" target="_blank" style="display:inline-block; margin:2px;"><img src="${r.start_photo_url}" class="report-thumb" title="Foto inicial" style="width:50px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #ccc;"></a> `;
           }
           if (r.end_photo_url) {
-            photosHtml += `<a href="${r.end_photo_url}" target="_blank"><img src="${r.end_photo_url}" class="report-thumb" title="Foto final" style="width:40px;height:30px;object-fit:cover;"></a>`;
+            photosHtml += `<a href="${r.end_photo_url}" target="_blank" style="display:inline-block; margin:2px;"><img src="${r.end_photo_url}" class="report-thumb" title="Foto final" style="width:50px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #ccc;"></a>`;
           }
           if (!photosHtml) photosHtml = '-';
 
           html += `<tr>
-            <td>${r.shifts?.date || '-'}</td>
+            <td>${r.shifts?.date.split('-').reverse().join('/') || '-'}</td>
             <td>${r.shifts?.profiles?.full_name || '-'}</td>
             <td>${r.shifts?.vehicles?.license_plate || '-'}</td>
             <td>${r.start_km || '-'}</td><td>${r.end_km || '-'}</td>
             <td>${r.fuel_litres || '-'}</td><td>${r.fuel_cost || '-'}</td><td>${r.invoiced_amount || '-'}</td>
-            <td>${photosHtml}</td>
+            <td style="text-align:center;">${photosHtml}</td>
           </tr>`;
         });
         html += '</tbody></table></div>';
@@ -624,6 +678,126 @@
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = 'relatorio_turnos.csv';
+        link.click();
+      });
+
+      // ---------- PAGAMENTOS (NOVO) ----------
+      async function loadPaymentsDropdowns() {
+        const { data: drivers } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
+        const options = '<option value="">Selecione...</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+        document.getElementById('p-driver').innerHTML = options;
+        document.getElementById('p-filter-driver').innerHTML = '<option value="">Todos</option>' + (drivers || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
+      }
+
+      document.getElementById('payment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const data = {
+            driver_id: document.getElementById('p-driver').value,
+            period_start: document.getElementById('p-start').value,
+            period_end: document.getElementById('p-end').value,
+            gross_value: parseFloat(document.getElementById('p-gross').value) || 0,
+            value_no_vat: parseFloat(document.getElementById('p-novat').value) || 0,
+            tips: parseFloat(document.getElementById('p-tips').value) || 0,
+            slot_commission: parseFloat(document.getElementById('p-slot').value) || 0,
+            value_to_pay_no_vat: parseFloat(document.getElementById('p-topay-novat').value) || 0,
+            insurance: parseFloat(document.getElementById('p-insurance').value) || 0,
+            total_transfer_no_vat: parseFloat(document.getElementById('p-transfer-novat').value) || 0,
+            total_transfer_vat: parseFloat(document.getElementById('p-transfer-vat').value) || 0
+          };
+
+          const { error } = await supabase.from('payments').insert(data);
+          if (error) throw error;
+
+          alert('Pagamento registado com sucesso!');
+          e.target.reset();
+          loadPayments();
+        } catch (err) {
+          alert('Erro ao registar pagamento: ' + err.message + '\n\nCertifique-se que executou o script SQL para criar a tabela "payments".');
+        }
+      });
+
+      document.getElementById('filter-payments-btn').addEventListener('click', loadPayments);
+
+      async function loadPayments() {
+        try {
+          const start = document.getElementById('p-filter-start').value;
+          const end = document.getElementById('p-filter-end').value;
+          const driverId = document.getElementById('p-filter-driver').value;
+
+          let query = supabase.from('payments').select('*, profiles!driver_id(full_name)').order('period_start', { ascending: false });
+          if (start) query = query.gte('period_start', start);
+          if (end) query = query.lte('period_end', end);
+          if (driverId) query = query.eq('driver_id', driverId);
+
+          const { data, error } = await query;
+          if (error) throw error;
+
+          currentPaymentsData = data || [];
+          const container = document.getElementById('payments-list');
+
+          if (currentPaymentsData.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Nenhum pagamento encontrado.</p>';
+            return;
+          }
+
+          let html = '<div class="table-wrapper"><table><thead><tr><th>Colaborador</th><th>Período</th><th>Bruto</th><th>S/ IVA</th><th>Gorjetas</th><th>Comissão Slot</th><th>A Pagar S/IVA</th><th>Seguro</th><th>Transf. S/IVA</th><th>Transf. C/IVA</th><th>Acão</th></tr></thead><tbody>';
+          currentPaymentsData.forEach(p => {
+            html += `<tr>
+              <td>${p.profiles?.full_name || '-'}</td>
+              <td>${p.period_start.split('-').reverse().join('/')} a ${p.period_end.split('-').reverse().join('/')}</td>
+              <td>${p.gross_value} €</td>
+              <td>${p.value_no_vat} €</td>
+              <td>${p.tips} €</td>
+              <td>${p.slot_commission} €</td>
+              <td>${p.value_to_pay_no_vat} €</td>
+              <td>${p.insurance} €</td>
+              <td><strong>${p.total_transfer_no_vat} €</strong></td>
+              <td><strong>${p.total_transfer_vat} €</strong></td>
+              <td><button class="delete-btn-sm" onclick="window.deletePayment('${p.id}')">🗑️</button></td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+          container.innerHTML = html;
+        } catch (err) {
+          document.getElementById('payments-list').innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
+        }
+      }
+
+      window.deletePayment = async (id) => {
+        if (!confirm('Apagar este registo de pagamento?')) return;
+        try {
+          const { error } = await supabase.from('payments').delete().eq('id', id);
+          if (error) throw error;
+          loadPayments();
+        } catch (err) {
+          alert('Erro ao apagar: ' + err.message);
+        }
+      };
+
+      document.getElementById('export-payments-btn').addEventListener('click', () => {
+        if (!currentPaymentsData || currentPaymentsData.length === 0) { alert('Sem dados para exportar.'); return; }
+        const headers = ['Colaborador', 'Data Inicio', 'Data Fim', 'Valor Bruto', 'Valor S/IVA', 'Gorjetas', 'Comissao Slot', 'Valor a Pagar S/IVA', 'Seguro', 'Total Transf S/IVA', 'Total Transf C/IVA'];
+        let csv = headers.join(';') + '\n';
+        currentPaymentsData.forEach(p => {
+          csv += [
+            p.profiles?.full_name || '',
+            p.period_start || '',
+            p.period_end || '',
+            p.gross_value || 0,
+            p.value_no_vat || 0,
+            p.tips || 0,
+            p.slot_commission || 0,
+            p.value_to_pay_no_vat || 0,
+            p.insurance || 0,
+            p.total_transfer_no_vat || 0,
+            p.total_transfer_vat || 0
+          ].join(';') + '\n';
+        });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'pagamentos.csv';
         link.click();
       });
 
