@@ -3,45 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#007bff">
+  <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Frota">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Login - Gestão de Frota</title>
+  
+  <!-- Fonte Moderna -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
 </head>
-<body>
-  <div class="container">
-    <h1>🚛 Gestão de Frota</h1>
+<body style="display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center;">
+  
+  <div class="container" style="width: 100%; max-width: 400px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <h1 style="font-size: 28px; color: var(--primary); margin-bottom: 5px;">🚛 Gestão de Frota</h1>
+      <p style="color: var(--text-muted); font-size: 14px;">Acesso ao Portal</p>
+    </div>
 
     <!-- Banner para Android / PC -->
-    <div id="install-banner" style="display:none; background:#e8f4fd; padding:20px; border-radius:12px; margin-bottom:20px; text-align:center; border: 2px solid #007bff;">
-      <p style="margin:0 0 12px 0; font-weight:bold; font-size:18px;">📱 Instalar App</p>
-      <p style="margin:0 0 15px 0; font-size:14px;">Toque no botão abaixo para instalar no seu dispositivo</p>
-      <button id="install-btn" style="background:#28a745; color:white; font-size:18px; padding:14px 40px; border:none; border-radius:8px; font-weight:bold; width:100%; cursor:pointer;">📥 Instalar Agora</button>
+    <div id="install-banner" style="display:none; background:#f0fdf4; padding:20px; border-radius:12px; margin-bottom:20px; text-align:center; border: 1px solid #10b981;">
+      <p style="margin:0 0 10px 0; font-weight:700; font-size:16px; color:#065f46;">📱 Instalar App</p>
+      <p style="margin:0 0 15px 0; font-size:13px; color:#047857;">Instale a aplicação para um acesso mais rápido.</p>
+      <button id="install-btn" style="background:#10b981; color:white; font-size:15px; padding:12px 20px; border:none; border-radius:8px; font-weight:600; width:100%; cursor:pointer;">📥 Instalar Agora</button>
     </div>
 
     <!-- Banner exclusivo para iOS -->
-    <div id="ios-banner" style="display:none; background:#fff3cd; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; border: 1px solid #ffc107;">
-      <p style="margin:0 0 10px 0; font-weight:bold; font-size:16px;">📱 Instalar no iPhone/iPad</p>
-      <p style="margin:0; font-size:14px;">1. Toque no ícone de partilha <span style="font-size:18px;">⬆️</span> na barra do Safari<br>2. Selecione <strong>"Adicionar ao Ecrã Principal"</strong> ➕</p>
+    <div id="ios-banner" style="display:none; background:#fffbeb; padding:15px; border-radius:12px; margin-bottom:20px; text-align:center; border: 1px solid #f59e0b;">
+      <p style="margin:0 0 8px 0; font-weight:700; font-size:15px; color:#92400e;">📱 Instalar no iPhone/iPad</p>
+      <p style="margin:0; font-size:13px; color:#b45309;">1. Toque em Partilhar <span style="font-size:16px;">⬆️</span> no Safari<br>2. Selecione <strong>"Adicionar ao Ecrã Principal"</strong> ➕</p>
     </div>
 
-    <form id="login-form">
-      <input type="text" id="login-id" placeholder="Nome de utilizador, nº de acesso ou email" required autocomplete="username">
-      <input type="password" id="password" placeholder="Palavra-passe" required autocomplete="current-password">
-      <button type="submit">Entrar</button>
+    <form id="login-form" style="box-shadow: none; padding: 0; background: transparent; border: none;">
+      <label>Identificação
+        <input type="text" id="login-id" placeholder="Email, Utilizador ou Nº Acesso" required autocomplete="username">
+      </label>
+      <label>Palavra-passe
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </label>
+      <button type="submit" style="margin-top: 10px; padding: 14px; font-size: 16px;">Entrar no Sistema</button>
     </form>
-    <p id="error-msg" style="color:red; text-align:center; font-weight:bold;"></p>
-    <p style="text-align:center;"><a href="#" id="forgot-password">Recuperar palavra-passe</a></p>
+    
+    <p id="error-msg" style="color: var(--danger); text-align: center; font-weight: 600; font-size: 14px; min-height: 20px; margin-top: 15px;"></p>
+    
+    <div style="text-align: center; margin-top: 15px;">
+      <a href="#" id="forgot-password" style="color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 500;">Esqueceu-se da palavra-passe?</a>
+    </div>
+  </div>
+
+  <!-- Rodapé Genérico (Login) -->
+  <div style="text-align: center; margin-top: 40px; color: var(--text-muted); font-size: 12px;">
+    &copy; <span id="current-year"></span> Gestão de Frota SaaS. Todos os direitos reservados.
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
     (function() {
+      document.getElementById('current-year').textContent = new Date().getFullYear();
+      
       const supabase = window.supabase;
       if (!supabase) {
         document.body.innerHTML = '<h1 style="color:red;text-align:center;padding:20px;">Erro: Sistema não inicializado. Contacte o administrador.</h1>';
@@ -61,37 +86,30 @@
           .catch(err => console.error('Erro ao registar Service Worker:', err));
       }
 
-      // Deteção de dispositivo e modo de ecrã
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-      // Captura o evento de instalação se o browser o disparar
       window.addEventListener('beforeinstallprompt', (e) => {
         console.log('Evento beforeinstallprompt capturado.');
         e.preventDefault();
         deferredPrompt = e;
       });
 
-      // Lógica de exibição dos banners
       if (!isStandalone) {
         if (isIOS) {
-          // É iOS: Mostra as instruções manuais
           document.getElementById('ios-banner').style.display = 'block';
         } else {
-          // É Android/PC: Força a exibição do botão após 1 segundo
           setTimeout(() => {
             document.getElementById('install-banner').style.display = 'block';
           }, 1000);
         }
       }
 
-      // Ação do botão de instalação (Android/PC)
       document.getElementById('install-btn').addEventListener('click', async () => {
         if (deferredPrompt) {
           try {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log('Resultado da instalação:', outcome);
             if (outcome === 'accepted') {
               document.getElementById('install-banner').style.display = 'none';
             }
@@ -100,20 +118,18 @@
             console.error('Erro ao acionar prompt de instalação:', err);
           }
         } else {
-          // Fallback caso o browser bloqueie o evento automático
           alert('Para instalar a App:\n\n1. Abra o menu do browser (três pontos ⋮ no canto superior direito)\n2. Escolha "Instalar Aplicação" ou "Adicionar ao ecrã principal".');
         }
       });
 
       window.addEventListener('appinstalled', () => {
-        console.log('Aplicação instalada com sucesso!');
         document.getElementById('install-banner').style.display = 'none';
         document.getElementById('ios-banner').style.display = 'none';
         deferredPrompt = null;
       });
 
       // =============================================
-      // FUNÇÃO DE REDIRECIONAMENTO
+      // FUNÇÃO DE REDIRECIONAMENTO (ATUALIZADA)
       // =============================================
       async function redirectBasedOnRole(userId) {
         try {
@@ -129,7 +145,10 @@
             return;
           }
 
-          if (profile.role === 'admin') {
+          // NOVO: Redireciona o Super Admin
+          if (profile.role === 'super_admin') {
+            window.location.href = 'superadmin.html';
+          } else if (profile.role === 'admin') {
             window.location.href = 'admin.html';
           } else if (profile.role === 'driver') {
             window.location.href = 'driver.html';
@@ -149,10 +168,7 @@
       (async () => {
         try {
           const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) {
-            console.error('Erro ao verificar sessão:', error);
-            return;
-          }
+          if (error) return;
           if (session) {
             console.log('Sessão ativa encontrada, redirecionando...');
             await redirectBasedOnRole(session.user.id);
@@ -170,10 +186,12 @@
         const loginId = document.getElementById('login-id').value.trim();
         const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
-        errorMsg.textContent = '';
+        errorMsg.textContent = 'A verificar credenciais...';
+        errorMsg.style.color = 'var(--text-muted)';
 
         if (!loginId || !password) {
           errorMsg.textContent = 'Preencha todos os campos.';
+          errorMsg.style.color = 'var(--danger)';
           return;
         }
 
@@ -191,12 +209,14 @@
               if (!accessError && emailByAccess) {
                 email = emailByAccess;
               } else {
-                errorMsg.textContent = 'Utilizador não encontrado. Verifique o nome de utilizador, nº de acesso ou email.';
+                errorMsg.textContent = 'Utilizador não encontrado. Verifique os dados.';
+                errorMsg.style.color = 'var(--danger)';
                 return;
               }
             }
           } catch (err) {
-            errorMsg.textContent = 'Erro ao procurar utilizador. Tente novamente.';
+            errorMsg.textContent = 'Erro ao procurar utilizador.';
+            errorMsg.style.color = 'var(--danger)';
             return;
           }
         }
@@ -205,10 +225,9 @@
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
           if (error) {
+            errorMsg.style.color = 'var(--danger)';
             if (error.message.includes('Invalid login credentials')) {
               errorMsg.textContent = 'Credenciais inválidas. Verifique a palavra-passe.';
-            } else if (error.message.includes('Email not confirmed')) {
-              errorMsg.textContent = 'Email não confirmado. Contacte o administrador.';
             } else {
               errorMsg.textContent = 'Erro de login: ' + error.message;
             }
@@ -217,13 +236,16 @@
 
           if (!data || !data.user) {
             errorMsg.textContent = 'Erro: Resposta de login inválida.';
+            errorMsg.style.color = 'var(--danger)';
             return;
           }
 
-          console.log('Login bem-sucedido, redirecionando...');
+          errorMsg.textContent = 'Login com sucesso! A redirecionar...';
+          errorMsg.style.color = 'var(--success)';
           await redirectBasedOnRole(data.user.id);
         } catch (err) {
           errorMsg.textContent = 'Erro inesperado: ' + err.message;
+          errorMsg.style.color = 'var(--danger)';
         }
       });
 
@@ -235,7 +257,7 @@
         const loginId = document.getElementById('login-id').value.trim();
 
         if (!loginId) {
-          alert('Introduza o seu nome de utilizador, nº de acesso ou email primeiro.');
+          alert('Introduza o seu nome de utilizador, nº de acesso ou email no campo de Identificação primeiro.');
           return;
         }
 

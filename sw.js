@@ -1,48 +1,53 @@
-const CACHE_NAME = 'frota-v4';
+/* =============================================
+   SERVICE WORKER - GESTÃO DE FROTA (SaaS v5)
+   ============================================= */
+
+const CACHE_NAME = 'frota-v5'; // Incrementado para v5 para forçar atualização SaaS
 const urlsToCache = [
   '/',
   '/index.html',
   '/admin.html',
   '/driver.html',
+  '/superadmin.html', // Novo painel adicionado à cache
   '/style.css',
   '/supabaseClient.js',
   '/manifest.json'
 ];
 
-// Instalar o Service Worker e guardar em cache
+// 1. Instalação: Guarda os ficheiros essenciais na cache
 self.addEventListener('install', event => {
-  console.log('Service Worker a instalar a versão v4...');
-  // Força o novo service worker a assumir o controlo imediatamente
+  console.log('SW: A instalar nova versão v5...');
+  // Força o novo service worker a tornar-se ativo imediatamente
   self.skipWaiting(); 
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache aberto e ficheiros guardados.');
+        console.log('SW: Cache aberta e ficheiros mapeados.');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
-// Ativar o Service Worker e limpar caches antigas
+// 2. Ativação: Limpa caches de versões anteriores para evitar conflitos
 self.addEventListener('activate', event => {
-  console.log('Service Worker ativado. A limpar versões antigas...');
+  console.log('SW: Ativado. A limpar caches antigas...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.filter(cacheName => cacheName !== CACHE_NAME)
-          .map(cacheName => {
-            console.log('A apagar cache antiga:', cacheName);
-            return caches.delete(cacheName);
+        cacheNames.filter(name => name !== CACHE_NAME)
+          .map(name => {
+            console.log('SW: A apagar cache obsoleta:', name);
+            return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim()) // Assume o controlo de todas as páginas abertas
+    }).then(() => self.clients.claim()) // Assume o controlo de todas as abas abertas
   );
 });
 
-// Estratégia de cache: Network First (Tenta a internet primeiro, se falhar usa a cache)
+// 3. Interceção de Pedidos (Fetch)
 self.addEventListener('fetch', event => {
-  // Ignorar pedidos à API do Supabase (dados em tempo real) e extensões do browser
+  // Ignorar pedidos para a API do Supabase (dados em tempo real) e extensões
   if (event.request.url.includes('supabase.co') || event.request.url.startsWith('chrome-extension')) {
     return;
   }
@@ -50,7 +55,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Se a resposta for válida, atualiza a cache silenciosamente
+        // Se a resposta for válida, guarda uma cópia na cache
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -60,8 +65,7 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Se estiver offline ou a rede falhar, vai buscar à cache
-        console.log('Modo offline: a carregar da cache ->', event.request.url);
+        // Se a rede falhar (offline), tenta servir a partir da cache
         return caches.match(event.request);
       })
   );

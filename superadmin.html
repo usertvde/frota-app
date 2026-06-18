@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e293b">
+  <title>Super Admin - Gestão Global</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body style="background-color: #e2e8f0;">
+  <div class="container" style="max-width: 1000px;">
+    <div class="header" style="border-bottom-color: #cbd5e1;">
+      <h1>👑 Painel Super Admin (SaaS)</h1>
+      <button id="logout-btn" class="logout-btn">Sair</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="companies">🏢 Empresas</button>
+      <button class="tab" data-tab="admins">👔 Administradores</button>
+    </div>
+
+    <!-- Painel Empresas -->
+    <div id="companies-panel" class="panel active">
+      <h2>Gestão de Empresas (Inquilinos)</h2>
+      
+      <form id="company-form">
+        <label>Nome da Nova Empresa:
+          <input type="text" id="c-name" placeholder="Ex: Transportes Silva Lda" required>
+        </label>
+        <button type="submit">➕ Criar Empresa</button>
+      </form>
+
+      <h3 style="margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 20px;">🏢 Empresas Registadas</h3>
+      <div id="companies-list">A carregar...</div>
+    </div>
+
+    <!-- Painel Administradores -->
+    <div id="admins-panel" class="panel">
+      <h2>Gestão de Administradores</h2>
+      
+      <form id="admin-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <label style="grid-column: span 2;">🏢 Associar à Empresa:
+          <select id="a-company" required><option value="">Selecione a Empresa...</option></select>
+        </label>
+        <label>📧 Email de Login:
+          <input type="email" id="a-email" placeholder="admin@empresa.com" required>
+        </label>
+        <label>🔒 Palavra-passe:
+          <input type="password" id="a-password" placeholder="Mínimo 6 caracteres" required>
+        </label>
+        <label style="grid-column: span 2;">👤 Nome do Responsável:
+          <input type="text" id="a-name" placeholder="Nome Completo" required>
+        </label>
+        <button type="submit" style="grid-column: span 2;">👔 Criar Administrador</button>
+      </form>
+
+      <h3 style="margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 20px;">👔 Administradores Ativos</h3>
+      <div id="admins-list">A carregar...</div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    (function() {
+      const supabase = window.supabase;
+      if (!supabase) { document.body.innerHTML = '<h1 style="color:red;text-align:center;">Erro: Supabase não inicializado.</h1>'; return; }
+      let sessionToken = '';
+
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        window.location.href = 'index.html';
+      });
+
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+          
+          if (tab.dataset.tab === 'companies') loadCompanies();
+          if (tab.dataset.tab === 'admins') { loadCompaniesDropdown(); loadAdmins(); }
+        });
+      });
+
+      // Verificação de Segurança (Apenas Super Admin)
+      (async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error || !session) { window.location.href = 'index.html'; return; }
+          sessionToken = session.access_token;
+
+          const { data: profile } = await supabase.from('profiles').select('role').eq('user_id', session.user.id).single();
+          if (!profile || profile.role !== 'super_admin') { 
+            alert('Acesso Negado. Apenas o Super Admin pode aceder a esta página.');
+            window.location.href = 'index.html'; 
+            return; 
+          }
+
+          loadCompanies();
+        } catch (err) {
+          console.error('Erro inicial:', err);
+        }
+      })();
+
+      // ==========================================
+      // GESTÃO DE EMPRESAS
+      // ==========================================
+      async function loadCompanies() {
+        try {
+          const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: false });
+          if (error) throw error;
+
+          const container = document.getElementById('companies-list');
+          if (!data || data.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Nenhuma empresa registada.</p>';
+            return;
+          }
+
+          container.innerHTML = data.map(c => `
+            <div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left: 4px solid ${c.is_active ? '#10b981' : '#ef4444'};">
+              <div>
+                <strong style="font-size: 18px;">${c.name}</strong>
+                <span style="display:block; font-size:13px; color:#64748b;">ID: ${c.id}</span>
+                <span class="status-badge" style="background: ${c.is_active ? '#d1fae5; color: #065f46;' : '#fee2e2; color: #991b1b;'} margin-top:5px;">
+                  ${c.is_active ? '✅ Ativa' : '❌ Suspensa'}
+                </span>
+              </div>
+              <div>
+                <button class="${c.is_active ? 'delete-btn-sm' : 'save-btn'}" onclick="window.toggleCompanyStatus('${c.id}', ${c.is_active})">
+                  ${c.is_active ? '⏸️ Suspender' : '▶️ Reativar'}
+                </button>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          document.getElementById('companies-list').innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
+        }
+      }
+
+      document.getElementById('company-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('c-name').value;
+        try {
+          const { error } = await supabase.from('companies').insert({ name });
+          if (error) throw error;
+          document.getElementById('c-name').value = '';
+          loadCompanies();
+          alert('Empresa criada com sucesso!');
+        } catch (err) {
+          alert('Erro ao criar empresa: ' + err.message);
+        }
+      });
+
+      window.toggleCompanyStatus = async (id, currentStatus) => {
+        if (!confirm(`Tem a certeza que deseja ${currentStatus ? 'suspender' : 'reativar'} esta empresa?`)) return;
+        try {
+          const { error } = await supabase.from('companies').update({ is_active: !currentStatus }).eq('id', id);
+          if (error) throw error;
+          loadCompanies();
+        } catch (err) {
+          alert('Erro ao alterar estado: ' + err.message);
+        }
+      };
+
+      // ==========================================
+      // GESTÃO DE ADMINISTRADORES
+      // ==========================================
+      async function loadCompaniesDropdown() {
+        const { data } = await supabase.from('companies').select('id, name').eq('is_active', true).order('name');
+        document.getElementById('a-company').innerHTML = '<option value="">Selecione a Empresa...</option>' + 
+          (data || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      }
+
+      async function loadAdmins() {
+        try {
+          const { data, error } = await supabase.from('profiles').select('*, companies(name)').eq('role', 'admin').order('created_at', { ascending: false });
+          if (error) throw error;
+
+          const container = document.getElementById('admins-list');
+          if (!data || data.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Nenhum administrador registado.</p>';
+            return;
+          }
+
+          container.innerHTML = data.map(a => `
+            <div class="card" id="admin-${a.user_id}">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <strong style="font-size: 16px;">${a.full_name || 'Sem Nome'}</strong>
+                  <span style="display:block; font-size:14px; color:#334155;">📧 ${a.email}</span>
+                  <span style="display:block; font-size:13px; color:#2563eb; font-weight:600; margin-top:4px;">🏢 ${a.companies?.name || 'Sem Empresa'}</span>
+                </div>
+                <div style="display:flex; gap:5px;">
+                  <button class="edit-btn" style="padding:6px 12px; font-size:12px;" onclick="window.toggleEditAdmin('${a.user_id}')">✏️ Editar</button>
+                  <button class="delete-btn-sm" style="padding:6px 12px; font-size:12px;" onclick="window.deleteAdmin('${a.user_id}')">🗑️ Apagar</button>
+                </div>
+              </div>
+              
+              <div id="edit-admin-${a.user_id}" style="display:none; margin-top:15px; padding-top:15px; border-top:1px dashed #cbd5e1; flex-direction:column; gap:10px;">
+                <input type="text" id="ea-name-${a.user_id}" value="${a.full_name || ''}" placeholder="Nome Completo">
+                <input type="password" id="ea-pw-${a.user_id}" placeholder="Nova Palavra-passe (deixar em branco para manter)">
+                <div style="display:flex; gap:10px;">
+                  <button class="save-btn" onclick="window.saveAdmin('${a.user_id}')">💾 Guardar</button>
+                  <button class="cancel-btn" onclick="window.toggleEditAdmin('${a.user_id}')">❌ Fechar</button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          document.getElementById('admins-list').innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
+        }
+      }
+
+      window.toggleEditAdmin = (id) => {
+        const el = document.getElementById(`edit-admin-${id}`);
+        el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+      };
+
+      document.getElementById('admin-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const companyId = document.getElementById('a-company').value;
+        const email = document.getElementById('a-email').value;
+        const password = document.getElementById('a-password').value;
+        const fullName = document.getElementById('a-name').value;
+
+        try {
+          // Chama a Edge Function para criar o utilizador no Auth
+          const res = await fetch(window.EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+            body: JSON.stringify({ action: 'create-admin', email, password, companyId, fullName })
+          });
+          const result = await res.json();
+          if (result.error) throw new Error(result.error);
+          
+          alert('Administrador criado com sucesso!');
+          e.target.reset();
+          loadAdmins();
+        } catch (err) {
+          alert('Erro ao criar administrador: ' + err.message + '\n\n(Nota: A Edge Function precisa de ser atualizada no próximo passo para suportar "create-admin").');
+        }
+      });
+
+      window.saveAdmin = async (id) => {
+        const fullName = document.getElementById(`ea-name-${id}`).value;
+        const newPassword = document.getElementById(`ea-pw-${id}`).value;
+
+        try {
+          await supabase.from('profiles').update({ full_name: fullName }).eq('user_id', id);
+
+          if (newPassword) {
+            const res = await fetch(window.EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+              body: JSON.stringify({ action: 'update-password', userId: id, password: newPassword })
+            });
+            const result = await res.json();
+            if (result.error) throw new Error(result.error);
+          }
+          
+          alert('Administrador atualizado!');
+          loadAdmins();
+        } catch (err) {
+          alert('Erro ao atualizar: ' + err.message);
+        }
+      };
+
+      window.deleteAdmin = async (id) => {
+        if (!confirm('Apagar este administrador permanentemente?')) return;
+        try {
+          const res = await fetch(window.EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+            body: JSON.stringify({ action: 'delete-user', userId: id })
+          });
+          const result = await res.json();
+          if (result.error) throw new Error(result.error);
+          
+          loadAdmins();
+        } catch (err) {
+          alert('Erro ao apagar: ' + err.message);
+        }
+      };
+
+    })();
+  </script>
+</body>
+</html>
