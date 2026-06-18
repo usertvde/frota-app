@@ -108,6 +108,7 @@
       if (!supabase) { document.body.innerHTML = '<h1 style="color:red;text-align:center;padding:20px;">Erro: Sistema não inicializado.</h1>'; return; }
 
       let currentUser = null;
+      let currentCompanyId = null;
       let availabilityPeriods = [];
 
       // Logout
@@ -141,7 +142,7 @@
 
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('role, access_number, full_name, companies(name)')
+            .select('role, access_number, full_name, company_id, companies(name)')
             .eq('user_id', currentUser.id)
             .single();
 
@@ -151,7 +152,8 @@
             return;
           }
 
-          // Identidade da Empresa no Rodapé e Título
+          currentCompanyId = profile.company_id;
+
           if (profile.companies && profile.companies.name) {
             document.getElementById('company-name-display').textContent = profile.companies.name;
             document.title = `Condutor - ${profile.companies.name}`;
@@ -173,7 +175,6 @@
 
       function getShiftEndDateTime(dateStr, startStr, endStr) {
         const end = new Date(`${dateStr}T${endStr}`);
-        // Se a hora de fim for menor que a de início, o turno acaba no dia seguinte (ex: 22h às 02h)
         if (endStr < startStr) {
           end.setDate(end.getDate() + 1);
         }
@@ -181,32 +182,21 @@
       }
 
       // =============================================
-      // MEUS HORÁRIOS (Lógica de Filtro e Exibição)
+      // MEUS HORÁRIOS
       // =============================================
       async function loadMyShifts() {
         try {
           const todayStr = getLocalTodayString();
           const now = new Date();
 
-          // Buscar disponibilidades e turnos
           const { data: availabilities } = await supabase.from('driver_availability').select('*').eq('driver_id', currentUser.id).gte('date', todayStr).order('date');
           const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*)').eq('driver_id', currentUser.id).gte('date', todayStr).order('date');
 
           const container = document.getElementById('shifts-today');
           container.innerHTML = '';
 
-          // Filtrar apenas turnos que ainda não acabaram ou estão em curso (Ponto 7 e 9)
-          const activeShifts = (shifts || []).filter(s => {
-            if (s.status === 'completed') return false;
-            if (s.status === 'started') return true;
-            const endDT = getShiftEndDateTime(s.date, s.start_time, s.end_time);
-            return endDT >= now;
-          });
-
-          const activeAvails = (availabilities || []).filter(a => {
-            const endDT = getShiftEndDateTime(a.date, a.start_time, a.end_time);
-            return endDT >= now;
-          });
+          const activeShifts = (shifts || []).filter(s => s.status !== 'completed' && (s.status === 'started' || getShiftEndDateTime(s.date, s.start_time, s.end_time) >= now));
+          const activeAvails = (availabilities || []).filter(a => getShiftEndDateTime(a.date, a.start_time, a.end_time) >= now);
 
           if (activeAvails.length === 0 && activeShifts.length === 0) {
             container.innerHTML = '<p class="empty-msg">Sem horários ativos para hoje ou dias futuros.</p>';
@@ -245,15 +235,11 @@
             if (shift) processedShiftIds.add(shift.id);
           });
 
-          activeShifts.forEach(shift => {
-            if (!processedShiftIds.has(shift.id)) html += generateCard(null, shift);
-          });
-
+          activeShifts.forEach(shift => { if (!processedShiftIds.has(shift.id)) html += generateCard(null, shift); });
           container.innerHTML = html;
         } catch (err) { console.error('Erro ao carregar horários:', err); }
       }
 
-      // --- FORMULÁRIOS DE INÍCIO E FIM DE TURNO ---
       window.showStartShiftForm = function(shiftId) {
         const formContainer = document.getElementById(`form-container-${shiftId}`);
         formContainer.style.display = 'block';
@@ -280,31 +266,21 @@
           e.preventDefault();
           try {
             const { data: currentShift } = await supabase.from('shifts').select('*').eq('id', shiftId).single();
-            // Ponto 6: Bloqueio de data anterior
-            if (getLocalTodayString() < currentShift.date) {
-              alert('⚠️ Não pode iniciar este turno antes da data programada.');
-              return;
-            }
+            if (getLocalTodayString() < currentShift.date) { alert('⚠️ Não pode iniciar este turno antes da data programada.'); return; }
             
             const startKm = parseInt(document.getElementById(`start-km-${shiftId}`).value);
             const photoFile = document.getElementById(`start-photo-${shiftId}`).files[0];
             let startPhotoUrl = null;
-
             if (photoFile) {
               const compressed = await compressImage(photoFile);
-              const path = `uploads/${Date.now()}_${photoFile.name}`;
+              const path = `uploads/${Date.now()}.jpg`;
               await supabase.storage.from('fleet-photos').upload(path, compressed);
               const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
               startPhotoUrl = urlData.publicUrl;
             }
-
             await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
-            await supabase.from('shift_reports').insert({
-              shift_id: shiftId, driver_id: currentUser.id, start_km: startKm, start_photo_url: startPhotoUrl
-            });
-
-            alert('Turno iniciado com sucesso!');
-            loadMyShifts();
+            await supabase.from('shift_reports').insert({ shift_id: shiftId, driver_id: currentUser.id, start_km: startKm, start_photo_url: startPhotoUrl, company_id: currentCompanyId });
+            alert('Turno iniciado com sucesso!'); loadMyShifts();
           } catch (err) { alert('Erro ao iniciar: ' + err.message); }
         });
       };
@@ -341,7 +317,7 @@
             let endPhotoUrl = null;
             if (photoFile) {
               const compressed = await compressImage(photoFile);
-              const path = `uploads/${Date.now()}_${photoFile.name}`;
+              const path = `uploads/${Date.now()}.jpg`;
               await supabase.storage.from('fleet-photos').upload(path, compressed);
               const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
               endPhotoUrl = urlData.publicUrl;
@@ -356,14 +332,12 @@
               updated_at: new Date().toISOString()
             }).eq('shift_id', shiftId);
             await supabase.from('shifts').update({ status: 'completed' }).eq('id', shiftId);
-            alert('Turno encerrado com sucesso!');
-            loadMyShifts();
-            loadHistory();
+            alert('Turno encerrado com sucesso!'); loadMyShifts(); loadHistory();
           } catch (err) { alert('Erro ao encerrar: ' + err.message); }
         });
       };
 
-      // --- GESTÃO DE DISPONIBILIDADE ---
+      // --- DISPONIBILIDADE ---
       async function loadAvailability() {
         try {
           const { data } = await supabase.from('driver_availability').select('*').eq('driver_id', currentUser.id).gte('date', getLocalTodayString()).order('date');
@@ -397,13 +371,10 @@
         replicateSection.style.display = 'block';
       }
 
-      window.removeAvail = async (id) => {
-        if (id.length > 10) { // Se for ID do Supabase (UUID)
-          await supabase.from('driver_availability').delete().eq('id', id);
-        } else { // Se for apenas local
-          availabilityPeriods = availabilityPeriods.filter(p => p.id !== id);
-        }
-        loadAvailability();
+      window.removeAvail = async (id) => { 
+        if (id.length > 10) await supabase.from('driver_availability').delete().eq('id', id);
+        else availabilityPeriods = availabilityPeriods.filter(p => p.id !== id);
+        loadAvailability(); 
       };
 
       document.getElementById('add-period-form').addEventListener('submit', (e) => {
@@ -416,30 +387,18 @@
         renderPeriodsList();
       });
 
-      document.getElementById('replicate-btn').addEventListener('click', () => {
-        const from = document.getElementById('replicate-from').value;
-        const to = document.getElementById('replicate-to').value;
-        if (!from || !to || from > to) { alert('Datas de replicação inválidas.'); return; }
-        const periodsToReplicate = [...availabilityPeriods];
-        const startDate = new Date(from);
-        const endDate = new Date(to);
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split('T')[0];
-          periodsToReplicate.forEach(p => {
-            const exists = availabilityPeriods.find(ap => ap.date === dateStr && ap.start_time === p.start_time && ap.end_time === p.end_time);
-            if (!exists) availabilityPeriods.push({ id: Date.now().toString() + Math.random(), date: dateStr, start_time: p.start_time, end_time: p.end_time });
-          });
-        }
-        renderPeriodsList();
-        alert('Períodos replicados localmente. Clique em Guardar para confirmar.');
-      });
-
       document.getElementById('save-availability-btn').addEventListener('click', async () => {
         const msg = document.getElementById('availability-msg');
         msg.textContent = 'A guardar...';
         try {
           await supabase.from('driver_availability').delete().eq('driver_id', currentUser.id).gte('date', getLocalTodayString());
-          const inserts = availabilityPeriods.map(p => ({ driver_id: currentUser.id, date: p.date, start_time: p.start_time, end_time: p.end_time }));
+          const inserts = availabilityPeriods.map(p => ({ 
+            driver_id: currentUser.id, 
+            date: p.date, 
+            start_time: p.start_time, 
+            end_time: p.end_time,
+            company_id: currentCompanyId 
+          }));
           if (inserts.length > 0) await supabase.from('driver_availability').insert(inserts);
           msg.textContent = '✅ Disponibilidade Guardada!'; msg.style.color = '#10b981';
           loadMyShifts();
@@ -462,7 +421,6 @@
                 <strong>📅 ${r.shifts?.date.split('-').reverse().join('/')} | 🚗 ${r.shifts?.vehicles?.license_plate || 'N/A'}</strong>
                 <span>🔢 Km: ${r.start_km || '?'} → ${r.end_km || '?'}</span>
                 <span>💶 Faturado: ${r.invoiced_amount || '0'} €</span>
-                ${r.notes_after_close ? `<span>📝 Nota: ${r.notes_after_close}</span>` : ''}
               </div>
             </div>
           `).join('');
