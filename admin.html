@@ -333,12 +333,7 @@
 
       function renderMaintList(list) {
         if (!list?.length) return '<p style="font-size:12px; color:#999;">Sem notas pendentes.</p>';
-        return list.filter(m => !m.is_completed).map(m => `
-          <div class="maintenance-item">
-            <span style="font-size:13px;">${m.note_text} (${m.verification_date})</span>
-            <button class="save-btn" style="padding:4px 8px; font-size:11px;" onclick="window.doneMaint('${m.id}')">✅</button>
-          </div>
-        `).join('');
+        return list.filter(m => !m.is_completed).map(m => `<div class="maintenance-item"><span style="font-size:13px;">${m.note_text} (${m.verification_date})</span><button class="save-btn" style="padding:4px 8px; font-size:11px;" onclick="window.doneMaint('${m.id}')">✅</button></div>`).join('');
       }
 
       window.toggleEditVehicle = (id) => { const el = document.getElementById(`edit-veh-${id}`); el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
@@ -437,7 +432,7 @@
 
         try {
           const { data: avails } = await supabase.from('driver_availability').select('*, profiles(full_name)').eq('date', date).order('start_time');
-          const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*)').eq('date', date);
+          const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*), profiles!driver_id(full_name)').eq('date', date);
           currentShiftsData = shifts || [];
 
           const grid = document.getElementById('admin-plan-grid');
@@ -496,7 +491,7 @@
 
       document.getElementById('export-shifts-btn').addEventListener('click', () => {
         if (!currentShiftsData.length) { alert('Sem dados para exportar.'); return; }
-        let csv = 'Data;Condutor;Viatura;Matricula;Inicio;Fim\n' + currentShiftsData.map(s => `${s.date};${s.profiles?.full_name || ''};${s.vehicles?.brand};${s.vehicles?.license_plate};${s.start_time};${s.end_time}`).join('\n');
+        let csv = 'Data;Condutor;Viatura;Matricula;Inicio;Fim\n' + currentShiftsData.map(s => `${s.date};${s.profiles?.full_name || 'N/A'};${s.vehicles?.brand};${s.vehicles?.license_plate};${s.start_time};${s.end_time}`).join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
