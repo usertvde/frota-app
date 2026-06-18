@@ -18,17 +18,23 @@
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <style>
+    /* Estilos específicos para o Dashboard e Alertas */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
     .stat-card { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow); text-align: center; transition: transform 0.2s; }
     .stat-card:hover { transform: translateY(-5px); }
     .stat-card h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.05em; }
     .stat-card p { font-size: 28px; font-weight: 700; color: var(--primary); }
     .stat-card.alert p { color: var(--danger); }
+    
     .blink { animation: blinker 1.5s linear infinite; color: #fff; background: var(--danger); padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 5px; vertical-align: middle; }
     @keyframes blinker { 50% { opacity: 0.3; } }
+    
     .maintenance-panel { background: #f8fafc; padding: 15px; margin-top: 10px; border-radius: 10px; border: 1px solid var(--border-color); }
     .maintenance-item { background: #fff; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    
     .import-zone { background: #f0f9ff; border: 2px dashed #0ea5e9; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center; }
+    
+    .payment-edit-input { padding: 8px; border: 1px solid var(--primary); border-radius: 6px; font-size: 13px; width: 100%; min-width: 80px; }
   </style>
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
@@ -68,6 +74,11 @@
           <h3>💶 Faturado (Mês)</h3>
           <p id="stat-revenue">0.00 €</p>
         </div>
+      </div>
+      
+      <div class="card" style="background: #f0f9ff; border-color: #bae6fd;">
+        <h3 style="color: #0369a1; margin-top: 0;">💡 Gestão de Frota SaaS</h3>
+        <p style="font-size: 14px; color: #0c4a6e;">Bem-vindo ao seu painel de controlo. Utilize as abas acima para gerir a sua operação diária.</p>
       </div>
     </div>
 
@@ -112,6 +123,7 @@
         <button id="export-shifts-btn" class="export-btn">📥 Exportar Excel</button>
       </div>
       <div id="admin-plan-grid" style="margin-top: 20px;"></div>
+      
       <h3 style="margin-top: 30px; border-top: 1px dashed #ccc; padding-top: 20px;">📅 Horários Futuros</h3>
       <div id="shifts-list"></div>
     </div>
@@ -134,7 +146,7 @@
     <div id="payments-panel" class="panel">
       <h2>Gestão de Pagamentos</h2>
 
-      <!-- Zona de Importação por Ficheiro -->
+      <!-- Importação em Lote -->
       <div class="import-zone">
         <h3 style="margin-top:0; color:#0369a1;">📄 Importação em Lote</h3>
         <p style="font-size:13px; color:#0c4a6e; margin-bottom:15px;">Descarregue o modelo com os seus condutores, preencha os valores e carregue o ficheiro.</p>
@@ -169,16 +181,18 @@
 
     <!-- Painel Definições -->
     <div id="settings-panel" class="panel">
-      <h2>Definições</h2>
+      <h2>Definições do Administrador</h2>
       <form id="admin-settings-form">
         <label>👤 Nome de utilizador: <input type="text" id="admin-username"></label>
         <label>🔒 Nova palavra-passe: <input type="password" id="admin-new-pw1"></label>
         <label>🔒 Confirmar: <input type="password" id="admin-new-pw2"></label>
         <button type="submit">💾 Guardar Alterações</button>
       </form>
+      <p id="settings-msg"></p>
     </div>
   </div>
 
+  <!-- Rodapé SaaS -->
   <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; font-weight: 500;">
     &copy; <span id="current-year"></span> <span id="company-name-display">Gestão de Frota</span>. Todos os direitos reservados.
   </div>
@@ -193,6 +207,7 @@
       let currentCompanyId = '';
       let allDriversData = [];
       let allVehiclesData = [];
+      let currentShiftsData = [];
 
       document.getElementById('logout-btn').addEventListener('click', async () => {
         await supabase.auth.signOut();
@@ -205,6 +220,7 @@
           document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
           tab.classList.add('active');
           document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+          
           if (tab.dataset.tab === 'dashboard') loadDashboard();
           if (tab.dataset.tab === 'vehicles') loadVehicles();
           if (tab.dataset.tab === 'drivers') loadDrivers();
@@ -243,10 +259,12 @@
         try {
           const today = new Date().toISOString().split('T')[0];
           const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
           const { count: vCount } = await supabase.from('vehicles').select('*', { count: 'exact', head: true });
           const { count: sCount } = await supabase.from('shifts').select('*', { count: 'exact', head: true }).eq('date', today);
           const { data: mData } = await supabase.from('vehicle_maintenance').select('*').eq('is_completed', false).lte('verification_date', today);
           const { data: pData } = await supabase.from('payments').select('gross_value').gte('period_start', firstDay);
+
           document.getElementById('stat-vehicles').textContent = vCount || 0;
           document.getElementById('stat-shifts').textContent = sCount || 0;
           document.getElementById('stat-maint').textContent = mData?.length || 0;
@@ -256,74 +274,225 @@
       }
 
       // =============================================
-      // VEÍCULOS
+      // VEÍCULOS & MANUTENÇÃO
       // =============================================
       async function loadVehicles() {
-        const { data } = await supabase.from('vehicles').select('*, vehicle_maintenance(*)').order('id');
-        allVehiclesData = data || [];
-        const container = document.getElementById('vehicles-list');
-        if (!data?.length) { container.innerHTML = '<p class="empty-msg">Sem veículos.</p>'; return; }
-        const today = new Date().toISOString().split('T')[0];
-        container.innerHTML = data.map(v => {
-          const hasAlert = v.vehicle_maintenance?.some(m => !m.is_completed && m.verification_date <= today);
-          const photo = v.photo_url ? `<img src="${v.photo_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;">` : `<div style="width:50px;height:50px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;">🚗</div>`;
-          return `<div class="card" style="display:flex;align-items:center;gap:15px;">
-            ${photo}
-            <div style="flex:1;"><strong>${v.brand} ${v.model} ${hasAlert ? '<span class="blink">⚠️</span>' : ''}</strong><span>${v.license_plate}</span></div>
-            <button class="edit-btn" onclick="window.toggleEditVehicle('${v.id}')">✏️</button>
-            <button class="reset-btn" onclick="window.toggleMaintenance('${v.id}')">🔧</button>
-          </div>
-          <div id="edit-veh-${v.id}" style="display:none;padding:15px;border-top:1px solid #eee;">
-             <input type="text" id="eb-${v.id}" value="${v.brand}">
-             <input type="text" id="em-${v.id}" value="${v.model}">
-             <input type="text" id="ep-${v.id}" value="${v.license_plate}">
-             <button class="save-btn" onclick="window.saveVehicle('${v.id}')">Guardar</button>
-             <button class="cancel-btn" onclick="window.toggleEditVehicle('${v.id}')">Fechar</button>
-          </div>
-          <div id="maint-${v.id}" style="display:none;padding:15px;background:#f9f9f9;">
-             <h4>Manutenções</h4>
-             <div id="maint-list-${v.id}"></div>
-             <button class="cancel-btn" onclick="window.toggleMaintenance('${v.id}')">Fechar</button>
-          </div>`;
-        }).join('');
+        try {
+          const { data } = await supabase.from('vehicles').select('*, vehicle_maintenance(*)').order('id');
+          allVehiclesData = data || [];
+          const container = document.getElementById('vehicles-list');
+          if (!data?.length) { container.innerHTML = '<p class="empty-msg">Nenhum veículo registado.</p>'; return; }
+          
+          const today = new Date().toISOString().split('T')[0];
+          container.innerHTML = data.map(v => {
+            const hasAlert = v.vehicle_maintenance?.some(m => !m.is_completed && m.verification_date <= today);
+            const photo = v.photo_url ? `<img src="${v.photo_url}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;">` : `<div style="width:50px;height:50px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:20px;">🚗</div>`;
+            
+            return `
+            <div class="card">
+              <div style="display:flex; align-items:center; gap:15px;">
+                ${photo}
+                <div style="flex:1;">
+                  <strong>${v.brand} ${v.model} ${hasAlert ? '<span class="blink">⚠️ MANUTENÇÃO</span>' : ''}</strong>
+                  <span style="font-size:13px; color:var(--text-muted);">${v.license_plate} | Ano: ${v.year || 'N/A'}</span>
+                </div>
+                <div style="display:flex; gap:5px;">
+                  <button class="edit-btn" onclick="window.toggleEditVehicle('${v.id}')">✏️</button>
+                  <button class="reset-btn" onclick="window.toggleMaintenance('${v.id}')">🔧</button>
+                </div>
+              </div>
+              <div id="edit-veh-${v.id}" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                  <input type="text" id="eb-${v.id}" value="${v.brand}">
+                  <input type="text" id="em-${v.id}" value="${v.model}">
+                  <input type="text" id="ep-${v.id}" value="${v.license_plate}">
+                  <input type="number" id="ey-${v.id}" value="${v.year || ''}">
+                </div>
+                <div style="display:flex; gap:10px;">
+                  <button class="save-btn" onclick="window.saveVehicle('${v.id}')">💾 Guardar</button>
+                  <button class="delete-btn-sm" onclick="window.deleteVehicle('${v.id}')">🗑️ Apagar</button>
+                  <button class="cancel-btn" onclick="window.toggleEditVehicle('${v.id}')">❌ Fechar</button>
+                </div>
+              </div>
+              <div id="maint-${v.id}" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:10px;">
+                <h4 style="margin-top:0;">🔧 Manutenções</h4>
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                  <input type="text" id="mn-${v.id}" placeholder="Nota" style="flex:1;">
+                  <input type="date" id="mv-${v.id}" style="width:130px;">
+                  <button class="save-btn" onclick="window.addMaint('${v.id}')">➕</button>
+                </div>
+                <div id="maint-list-${v.id}">${renderMaintList(v.vehicle_maintenance)}</div>
+                <button class="cancel-btn" style="width:100%; margin-top:10px;" onclick="window.toggleMaintenance('${v.id}')">❌ Fechar</button>
+              </div>
+            </div>`;
+          }).join('');
+        } catch (err) { console.error(err); }
       }
+
+      function renderMaintList(list) {
+        if (!list?.length) return '<p style="font-size:12px; color:#999;">Sem notas pendentes.</p>';
+        return list.filter(m => !m.is_completed).map(m => `
+          <div class="maintenance-item">
+            <span style="font-size:13px;">${m.note_text} (${m.verification_date})</span>
+            <button class="save-btn" style="padding:4px 8px; font-size:11px;" onclick="window.doneMaint('${m.id}')">✅</button>
+          </div>
+        `).join('');
+      }
+
       window.toggleEditVehicle = (id) => { const el = document.getElementById(`edit-veh-${id}`); el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
       window.toggleMaintenance = (id) => { const el = document.getElementById(`maint-${id}`); el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
+      
       window.saveVehicle = async (id) => {
-        await supabase.from('vehicles').update({ brand: document.getElementById(`eb-${id}`).value, model: document.getElementById(`em-${id}`).value, license_plate: document.getElementById(`ep-${id}`).value }).eq('id', id);
+        await supabase.from('vehicles').update({ brand: document.getElementById(`eb-${id}`).value, model: document.getElementById(`em-${id}`).value, license_plate: document.getElementById(`ep-${id}`).value, year: document.getElementById(`ey-${id}`).value }).eq('id', id);
         loadVehicles();
       };
+
+      window.deleteVehicle = async (id) => { if (confirm('Apagar veículo?')) { await supabase.from('vehicles').delete().eq('id', id); loadVehicles(); } };
+
+      window.addMaint = async (vid) => {
+        const note = document.getElementById(`mn-${vid}`).value;
+        const date = document.getElementById(`mv-${vid}`).value;
+        if (!note || !date) return;
+        await supabase.from('vehicle_maintenance').insert({ vehicle_id: vid, note_text: note, note_date: new Date().toISOString().split('T')[0], verification_date: date });
+        loadVehicles();
+      };
+
+      window.doneMaint = async (mid) => { await supabase.from('vehicle_maintenance').update({ is_completed: true }).eq('id', mid); loadVehicles(); };
 
       // =============================================
       // COLABORADORES
       // =============================================
       async function loadDrivers() {
-        const { data } = await supabase.from('profiles').select('*').eq('role', 'driver');
-        allDriversData = data || [];
-        const container = document.getElementById('drivers-list');
-        if (!data?.length) { container.innerHTML = '<p class="empty-msg">Sem colaboradores.</p>'; return; }
-        container.innerHTML = data.map(d => `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
-          <div><strong>${d.full_name || 'Sem nome'}</strong><span>${d.email} | Nº: ${d.access_number || '-'}</span></div>
-          <button class="edit-btn" onclick="window.toggleEditDriver('${d.user_id}')">✏️</button>
-        </div>
-        <div id="edit-drv-${d.user_id}" style="display:none;padding:15px;border-top:1px solid #eee;">
-          <input type="text" id="ed-name-${d.user_id}" value="${d.full_name || ''}">
-          <input type="text" id="ed-acc-${d.user_id}" value="${d.access_number || ''}">
-          <input type="password" id="ed-pw-${d.user_id}" placeholder="Nova Password">
-          <button class="save-btn" onclick="window.saveDriver('${d.user_id}')">Guardar</button>
-          <button class="cancel-btn" onclick="window.toggleEditDriver('${d.user_id}')">Fechar</button>
-        </div>`).join('');
+        try {
+          const { data } = await supabase.from('profiles').select('*').eq('role', 'driver');
+          allDriversData = data || [];
+          const container = document.getElementById('drivers-list');
+          if (!data?.length) { container.innerHTML = '<p class="empty-msg">Nenhum colaborador registado.</p>'; return; }
+          
+          container.innerHTML = data.map(d => `
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong>${d.full_name || 'Sem nome'}</strong>
+                  <span style="font-size:13px; color:var(--text-muted);">${d.email} | Nº Acesso: ${d.access_number || '-'}</span>
+                </div>
+                <button class="edit-btn" onclick="window.toggleEditDriver('${d.user_id}')">✏️ Editar</button>
+              </div>
+              <div id="edit-drv-${d.user_id}" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                  <input type="text" id="ed-name-${d.user_id}" value="${d.full_name || ''}" placeholder="Nome">
+                  <input type="text" id="ed-acc-${d.user_id}" value="${d.access_number || ''}" placeholder="Nº Acesso">
+                  <input type="password" id="ed-pw-${d.user_id}" placeholder="Nova Password" style="grid-column: span 2;">
+                </div>
+                <div style="display:flex; gap:10px;">
+                  <button class="save-btn" onclick="window.saveDriver('${d.user_id}')">💾 Guardar</button>
+                  <button class="delete-btn-sm" onclick="window.deleteDriver('${d.user_id}')">🗑️ Apagar</button>
+                  <button class="cancel-btn" onclick="window.toggleEditDriver('${d.user_id}')">❌ Fechar</button>
+                </div>
+              </div>
+            </div>`).join('');
+        } catch (err) { console.error(err); }
       }
+
       window.toggleEditDriver = (id) => { const el = document.getElementById(`edit-drv-${id}`); el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
+      
       window.saveDriver = async (id) => {
-        await supabase.from('profiles').update({ full_name: document.getElementById(`ed-name-${id}`).value, access_number: document.getElementById(`ed-acc-${id}`).value }).eq('user_id', id);
+        const name = document.getElementById(`ed-name-${id}`).value;
+        const acc = document.getElementById(`ed-acc-${id}`).value;
         const pw = document.getElementById(`ed-pw-${id}`).value;
-        if (pw) await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'update-password', userId: id, password: pw }) });
+        await supabase.from('profiles').update({ full_name: name, access_number: acc }).eq('user_id', id);
+        if (pw) {
+          await fetch(window.EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+            body: JSON.stringify({ action: 'update-password', userId: id, password: pw })
+          });
+          alert('Password atualizada!');
+        }
         loadDrivers();
       };
 
+      window.deleteDriver = async (id) => { if (confirm('Apagar colaborador?')) { await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'delete-driver', userId: id }) }); loadDrivers(); } };
+
       // =============================================
-      // PAGAMENTOS (CORRIGIDO: SEM CÁLCULOS E COM IMPORTAÇÃO)
+      // HORÁRIOS (PLANEAMENTO DIÁRIO)
+      // =============================================
+      async function loadShiftsPanel() {
+        const dateInput = document.getElementById('admin-plan-date');
+        if (!dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+        const date = dateInput.value;
+
+        try {
+          const { data: avails } = await supabase.from('driver_availability').select('*, profiles(full_name)').eq('date', date).order('start_time');
+          const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*)').eq('date', date);
+          currentShiftsData = shifts || [];
+
+          const grid = document.getElementById('admin-plan-grid');
+          if (!avails?.length) { grid.innerHTML = '<p class="empty-msg">Sem disponibilidade para este dia.</p>'; return; }
+
+          grid.innerHTML = avails.map(a => {
+            const s = shifts?.find(sh => sh.driver_id === a.driver_id && sh.start_time >= a.start_time && sh.end_time <= a.end_time);
+            
+            let content = '';
+            if (s) {
+              content = `<div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <span style="color:var(--success); font-weight:600;">✅ ${s.vehicles?.brand} (${s.vehicles?.license_plate}) [${s.start_time.substring(0,5)}-${s.end_time.substring(0,5)}]</span>
+                <button class="delete-btn-sm" onclick="window.removeShift('${s.id}')">🗑️</button>
+              </div>`;
+            } else {
+              let vOptions = allVehiclesData.map(v => `<option value="${v.id}">${v.brand} (${v.license_plate})</option>`).join('');
+              content = `
+                <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
+                  <div style="display:flex; gap:10px;">
+                    <input type="time" id="ts-${a.id}" value="${a.start_time.substring(0,5)}" style="flex:1;">
+                    <input type="time" id="te-${a.id}" value="${a.end_time.substring(0,5)}" style="flex:1;">
+                  </div>
+                  <div style="display:flex; gap:10px;">
+                    <select id="vs-${a.id}" style="flex:1;"><option value="">Viatura...</option>${vOptions}</select>
+                    <button class="save-btn" onclick="window.assignShift('${a.driver_id}', '${date}', '${a.id}')">✅ Atribuir</button>
+                  </div>
+                </div>`;
+            }
+
+            return `<div class="card" style="border-left: 4px solid ${s ? 'var(--success)' : 'var(--warning)'};">
+              <strong style="display:block; margin-bottom:10px;">👤 ${a.profiles?.full_name} (Disp: ${a.start_time.substring(0,5)}-${a.end_time.substring(0,5)})</strong>
+              ${content}
+            </div>`;
+          }).join('');
+
+          const { data: future } = await supabase.from('shifts').select('*, vehicles(*), profiles!driver_id(full_name)').gte('date', date).order('date');
+          document.getElementById('shifts-list').innerHTML = (future || []).map(fs => `
+            <div class="card" style="font-size:13px;">
+              <strong>${fs.profiles?.full_name}</strong> | ${fs.date} [${fs.start_time.substring(0,5)}-${fs.end_time.substring(0,5)}] | 🚗 ${fs.vehicles?.license_plate}
+            </div>
+          `).join('');
+
+        } catch (err) { console.error(err); }
+      }
+
+      window.assignShift = async (did, date, aid) => {
+        const vid = document.getElementById(`vs-${aid}`).value;
+        const start = document.getElementById(`ts-${aid}`).value;
+        const end = document.getElementById(`te-${aid}`).value;
+        if (!vid) return;
+        await supabase.from('shifts').insert({ driver_id: did, vehicle_id: vid, date, start_time: start, end_time: end, company_id: currentCompanyId });
+        loadShiftsPanel();
+      };
+
+      window.removeShift = async (sid) => { if (confirm('Remover turno?')) { await supabase.from('shifts').delete().eq('id', sid); loadShiftsPanel(); } };
+
+      document.getElementById('export-shifts-btn').addEventListener('click', () => {
+        if (!currentShiftsData.length) return;
+        let csv = 'Data;Condutor;Viatura;Matricula;Inicio;Fim\n' + currentShiftsData.map(s => `${s.date};${s.profiles?.full_name || ''};${s.vehicles?.brand};${s.vehicles?.license_plate};${s.start_time};${s.end_time}`).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `horarios_${document.getElementById('admin-plan-date').value}.csv`;
+        link.click();
+      });
+
+      // =============================================
+      // PAGAMENTOS (MANUAL + IMPORTAÇÃO)
       // =============================================
       async function loadPaymentsDropdowns() {
         const { data } = await supabase.from('profiles').select('user_id, full_name, email').eq('role', 'driver');
@@ -332,15 +501,25 @@
       }
 
       async function loadPayments() {
-        const { data } = await supabase.from('payments').select('*, profiles!driver_id(full_name)').order('period_start', { ascending: false });
-        const container = document.getElementById('payments-list');
-        if (!data?.length) { container.innerHTML = '<p class="empty-msg">Sem pagamentos.</p>'; return; }
-        container.innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Condutor</th><th>Período</th><th>Bruto</th><th>Transf. c/ IVA</th><th>Ação</th></tr></thead><tbody>' + 
-          data.map(p => `<tr><td>${p.profiles?.full_name}</td><td>${p.period_start} a ${p.period_end}</td><td>${p.gross_value}€</td><td><strong>${p.total_transfer_vat}€</strong></td><td><button class="delete-btn-sm" onclick="window.deletePayment('${p.id}')">🗑️</button></td></tr>`).join('') + '</tbody></table></div>';
+        try {
+          const { data } = await supabase.from('payments').select('*, profiles!driver_id(full_name)').order('period_start', { ascending: false });
+          const container = document.getElementById('payments-list');
+          if (!data?.length) { container.innerHTML = '<p class="empty-msg">Sem pagamentos registados.</p>'; return; }
+          
+          container.innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Condutor</th><th>Período</th><th>Bruto</th><th>Transf. c/ IVA</th><th>Ação</th></tr></thead><tbody>' + 
+            data.map(p => `<tr>
+              <td>${p.profiles?.full_name}</td>
+              <td>${p.period_start} a ${p.period_end}</td>
+              <td>${p.gross_value}€</td>
+              <td><strong>${p.total_transfer_vat}€</strong></td>
+              <td><button class="delete-btn-sm" onclick="window.deletePayment('${p.id}')">🗑️</button></td>
+            </tr>`).join('') + '</tbody></table></div>';
+        } catch (err) { console.error(err); }
       }
-      window.deletePayment = async (id) => { if (confirm('Apagar?')) { await supabase.from('payments').delete().eq('id', id); loadPayments(); } };
 
-      // Ponto: Descarregar Modelo CSV
+      window.deletePayment = async (id) => { if (confirm('Apagar registo?')) { await supabase.from('payments').delete().eq('id', id); loadPayments(); } };
+
+      // Descarregar Modelo CSV
       document.getElementById('download-template-btn').addEventListener('click', () => {
         if (!allDriversData.length) { alert('Não existem condutores registados.'); return; }
         const headers = ['Nome', 'Email', 'Data Inicio (AAAA-MM-DD)', 'Data Fim (AAAA-MM-DD)', 'Valor Bruto', 'Valor S/IVA', 'Gorjetas', 'Comissao Slot', 'Valor a Pagar S/IVA', 'Seguro', 'Total Transf S/IVA', 'Total Transf C/IVA'];
@@ -355,18 +534,18 @@
         link.click();
       });
 
-      // Ponto: Importar Ficheiro CSV
+      // Importar Ficheiro CSV
       document.getElementById('import-payments-file').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async (event) => {
           const text = event.target.result;
-          const rows = text.split('\n').slice(1); // Ignorar cabeçalho
+          const rows = text.split('\n').slice(1);
           let count = 0;
           for (let row of rows) {
             const cols = row.split(';');
-            if (cols.length < 11 || !cols[1]) continue; // Linha vazia ou incompleta
+            if (cols.length < 11 || !cols[1]) continue;
 
             const email = cols[1].trim();
             const driver = allDriversData.find(d => d.email === email);
@@ -392,31 +571,43 @@
           }
           alert(`Importação concluída: ${count} registos inseridos.`);
           loadPayments();
-          e.target.value = ''; // Reset input
+          e.target.value = '';
         };
         reader.readAsText(file);
       });
 
       // =============================================
-      // HORÁRIOS & RELATÓRIOS
+      // RELATÓRIOS
       // =============================================
-      async function loadShiftsPanel() {
-        const date = document.getElementById('admin-plan-date').value || new Date().toISOString().split('T')[0];
-        document.getElementById('admin-plan-date').value = date;
-        const { data: avails } = await supabase.from('driver_availability').select('*, profiles(full_name)').eq('date', date);
-        const { data: shifts } = await supabase.from('shifts').select('*, vehicles(*)').eq('date', date);
-        const grid = document.getElementById('admin-plan-grid');
-        if (!avails?.length) { grid.innerHTML = '<p class="empty-msg">Sem disponibilidade.</p>'; return; }
-        grid.innerHTML = avails.map(a => {
-          const s = shifts?.find(sh => sh.driver_id === a.driver_id);
-          return `<div class="card"><strong>${a.profiles?.full_name}</strong>: ${a.start_time}-${a.end_time} ${s ? `✅ ${s.vehicles?.license_plate}` : '⚠️ Livre'}</div>`;
-        }).join('');
-      }
-
       async function loadReportDropdowns() {
         const { data } = await supabase.from('profiles').select('user_id, full_name').eq('role', 'driver');
         document.getElementById('report-driver').innerHTML = '<option value="">Todos</option>' + (data || []).map(d => `<option value="${d.user_id}">${d.full_name}</option>`).join('');
       }
+
+      document.getElementById('generate-report').addEventListener('click', async () => {
+        const date = document.getElementById('report-date').value;
+        const driverId = document.getElementById('report-driver').value;
+        let query = supabase.from('shift_reports').select('*, shifts(date, vehicles(*), profiles!driver_id(full_name))');
+        if (date) query = query.eq('shifts.date', date);
+        if (driverId) query = query.eq('driver_id', driverId);
+        const { data } = await query;
+        
+        const out = document.getElementById('report-output');
+        if (!data?.length) { out.innerHTML = '<p class="empty-msg">Sem resultados.</p>'; return; }
+        
+        out.innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Data</th><th>Condutor</th><th>Viatura</th><th>Km</th><th>Faturado</th><th>Fotos</th></tr></thead><tbody>' + 
+          data.map(r => `<tr>
+            <td>${r.shifts?.date}</td>
+            <td>${r.shifts?.profiles?.full_name}</td>
+            <td>${r.shifts?.vehicles?.license_plate}</td>
+            <td>${r.start_km} - ${r.end_km}</td>
+            <td>${r.invoiced_amount}€</td>
+            <td>
+              ${r.start_photo_url ? `<a href="${r.start_photo_url}" target="_blank">📸 Ini</a>` : ''}
+              ${r.end_photo_url ? `<a href="${r.end_photo_url}" target="_blank">📸 Fim</a>` : ''}
+            </td>
+          </tr>`).join('') + '</tbody></table></div>';
+      });
 
       // =============================================
       // FORMULÁRIOS GERAIS
@@ -440,12 +631,9 @@
           e.preventDefault();
           const email = document.getElementById('d-email').value;
           const password = document.getElementById('d-password').value;
-          const res = await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'create-driver', email, password }) });
+          const res = await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'create-driver', email, password, fullName: document.getElementById('d-name').value, accessNumber: document.getElementById('d-access-number').value }) });
           const result = await res.json();
-          if (result.userId) {
-            await supabase.from('profiles').update({ full_name: document.getElementById('d-name').value, access_number: document.getElementById('d-access-number').value, company_id: currentCompanyId }).eq('user_id', result.userId);
-            loadDrivers(); e.target.reset();
-          }
+          if (result.error) alert('Erro: ' + result.error); else { loadDrivers(); e.target.reset(); }
         });
 
         document.getElementById('payment-form').addEventListener('submit', async (e) => {
@@ -466,6 +654,17 @@
           };
           await supabase.from('payments').insert(data);
           loadPayments(); e.target.reset();
+        });
+
+        document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const user = (await supabase.auth.getUser()).data.user;
+          const newUsername = document.getElementById('admin-username').value;
+          const pw1 = document.getElementById('admin-new-pw1').value;
+          const pw2 = document.getElementById('admin-new-pw2').value;
+          if (newUsername) await supabase.from('profiles').update({ username: newUsername }).eq('user_id', user.id);
+          if (pw1 && pw1 === pw2) await supabase.auth.updateUser({ password: pw1 });
+          document.getElementById('settings-msg').textContent = '✅ Guardado!';
         });
       }
 
