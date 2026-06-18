@@ -9,11 +9,16 @@
   <meta name="apple-mobile-web-app-title" content="Frota Colaborador">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Colaborador - Gestão de Frota</title>
+  <!-- Nova Fonte Moderna -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <div class="container" style="padding-bottom: 60px;"> <!-- Espaço extra para evitar cortes no fundo -->
+  <!-- Ponto 8: Padding bottom extra para evitar cortes no telemóvel -->
+  <div class="container" style="padding-bottom: 120px;">
     <div class="header">
       <h1>🚚 Painel do Colaborador</h1>
       <button id="logout-btn" class="logout-btn">Sair</button>
@@ -25,58 +30,62 @@
       <button class="tab" data-tab="history">📋 Histórico</button>
     </div>
 
+    <!-- Painel Meus Horários -->
     <div id="my-shifts-panel" class="panel active">
       <h2>Horários de Hoje e Futuros</h2>
       <div id="shifts-today">A carregar...</div>
     </div>
 
+    <!-- Painel Disponibilidade -->
     <div id="availability-panel" class="panel">
       <h2>Definir Disponibilidade</h2>
 
-      <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin-bottom:25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h3 style="margin-top:0; margin-bottom:15px; color:#007bff;">➕ Adicionar Período</h3>
-        <form id="add-period-form" style="background:#fff; padding:15px; border-radius:8px; border:1px solid #dee2e6;">
+      <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:25px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <h3 style="margin-top:0; margin-bottom:15px; color:#2563eb; font-size: 18px;">➕ Adicionar Período</h3>
+        <form id="add-period-form" style="background:#fff; padding:15px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: none;">
           <label style="margin-bottom: 10px;">📅 Dia:
             <input type="date" id="period-date" required style="padding: 12px; font-size: 16px;">
           </label>
-          <div class="time-row" style="margin-bottom: 15px;">
-            <label>🕐 Hora início:
+          <div class="time-row" style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <label style="flex: 1;">🕐 Início:
               <input type="time" id="period-start" required style="padding: 12px; font-size: 16px;">
             </label>
-            <label>🕐 Hora fim:
+            <label style="flex: 1;">🕐 Fim:
               <input type="time" id="period-end" required style="padding: 12px; font-size: 16px;">
             </label>
           </div>
-          <button type="submit" style="padding: 15px; font-size: 16px; font-weight: bold; margin-top: 5px;">✅ Definir</button>
+          <!-- Ponto 8: Botão bem visível -->
+          <button type="submit" style="padding: 15px; font-size: 16px; font-weight: bold; margin-top: 10px; width: 100%;">✅ Definir Horário</button>
         </form>
       </div>
 
-      <div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:15px;">
-        <h3 style="margin-top:0;">📋 Períodos Adicionados</h3>
+      <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:15px; border: 1px solid #e2e8f0;">
+        <h3 style="margin-top:0; font-size: 18px;">📋 Períodos Adicionados</h3>
         <div id="periods-list">
           <p class="empty-msg">Nenhum período adicionado.</p>
         </div>
-        <div id="replicate-section" style="display:none;margin-top:15px;padding-top:15px;border-top:1px dashed #ccc;">
-          <h4>📅 Replicar para outros dias</h4>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <label style="flex:1;min-width:120px;">De:
+        <div id="replicate-section" style="display:none; margin-top:20px; padding-top:20px; border-top:1px dashed #cbd5e1;">
+          <h4 style="margin-top:0; color:#334155;">📅 Replicar para outros dias</h4>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="flex:1; min-width:120px;">De:
               <input type="date" id="replicate-from">
             </label>
-            <label style="flex:1;min-width:120px;">Até:
+            <label style="flex:1; min-width:120px;">Até:
               <input type="date" id="replicate-to">
             </label>
-            <button id="replicate-btn" style="background:#17a2b8;white-space:nowrap;">📅 Replicar</button>
+            <button id="replicate-btn" style="background:#0ea5e9; white-space:nowrap; padding: 12px 20px;">📅 Replicar</button>
           </div>
         </div>
       </div>
 
       <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
-        <button id="save-availability-btn" style="background:#28a745; flex: 1; min-width: 200px; padding: 15px; font-size: 16px;">💾 Guardar Disponibilidade</button>
-        <button id="clear-availability-btn" style="background:#dc3545; flex: 1; min-width: 150px; padding: 15px; font-size: 16px;">🗑️ Limpar Tudo</button>
+        <button id="save-availability-btn" style="background:#10b981; flex: 1; min-width: 200px; padding: 15px; font-size: 16px;">💾 Guardar Disponibilidade</button>
+        <button id="clear-availability-btn" style="background:#ef4444; flex: 1; min-width: 150px; padding: 15px; font-size: 16px;">🗑️ Limpar Tudo</button>
       </div>
-      <p id="availability-msg" style="margin-top:10px; text-align: center; font-weight: bold;"></p>
+      <p id="availability-msg" style="margin-top:15px; text-align: center; font-weight: bold;"></p>
     </div>
 
+    <!-- Painel Histórico -->
     <div id="history-panel" class="panel">
       <h2>Histórico de Turnos</h2>
       <div id="history-list">A carregar...</div>
@@ -124,12 +133,10 @@
         try {
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           if (sessionError || !session) {
-            console.log('Sem sessão, redirecionando para login');
             window.location.href = 'index.html';
             return;
           }
           currentUser = session.user;
-          console.log('Sessão obtida para user:', currentUser.id);
 
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -138,13 +145,10 @@
             .single();
 
           if (profileError || !profile || profile.role !== 'driver') {
-            console.log('Acesso negado - não é motorista');
             await supabase.auth.signOut();
             window.location.href = 'index.html';
             return;
           }
-
-          console.log('Colaborador autenticado:', profile.full_name);
 
           if (profile.access_number) {
             document.querySelector('.header h1').textContent += ' (Nº ' + profile.access_number + ')';
@@ -154,38 +158,77 @@
           await loadHistory();
         } catch (err) {
           console.error('Erro na inicialização:', err);
-          alert('Erro ao inicializar: ' + err.message);
         }
       })();
 
+      // Funções auxiliares de datas (Pontos 6, 7 e 9)
+      function getLocalTodayString() {
+        const now = new Date();
+        return now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+      }
+
+      function getLocalYesterdayString() {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return y.getFullYear() + '-' + String(y.getMonth()+1).padStart(2,'0') + '-' + String(y.getDate()).padStart(2,'0');
+      }
+
+      function getShiftEndDateTime(dateStr, startStr, endStr) {
+        const end = new Date(`${dateStr}T${endStr}`);
+        // Se a hora de fim for menor que a hora de início, o turno acaba no dia seguinte
+        if (endStr < startStr) {
+          end.setDate(end.getDate() + 1);
+        }
+        return end;
+      }
+
       // =============================================
-      // MEUS HORÁRIOS
+      // MEUS HORÁRIOS (Apenas Ativos/Futuros)
       // =============================================
       async function loadMyShifts() {
         try {
-          const today = new Date().toISOString().split('T')[0];
+          const todayStr = getLocalTodayString();
+          const yesterdayStr = getLocalYesterdayString();
+          const now = new Date();
 
+          // Disponibilidades a partir de hoje
           const { data: availabilities, error: availError } = await supabase
             .from('driver_availability')
             .select('*')
             .eq('driver_id', currentUser.id)
-            .gte('date', today)
+            .gte('date', todayStr)
             .order('date');
           if (availError) throw availError;
 
+          // Turnos a partir de ontem (para apanhar turnos noturnos que acabam hoje)
           const { data: shifts, error: shiftsError } = await supabase
             .from('shifts')
             .select('*, vehicles(*)')
             .eq('driver_id', currentUser.id)
-            .gte('date', today)
+            .gte('date', yesterdayStr)
             .order('date');
           if (shiftsError) throw shiftsError;
 
           const container = document.getElementById('shifts-today');
           container.innerHTML = '';
 
-          if ((!availabilities || availabilities.length === 0) && (!shifts || shifts.length === 0)) {
-            container.innerHTML = '<p class="empty-msg">Sem horários ou disponibilidades para hoje e dias futuros.</p>';
+          // Filtrar turnos ativos (Ponto 7 e 9)
+          const activeShifts = (shifts || []).filter(s => {
+            if (s.status === 'completed') return false; // Concluídos vão para o histórico
+            if (s.status === 'started') return true; // Em curso ficam sempre visíveis
+            
+            const endDT = getShiftEndDateTime(s.date, s.start_time, s.end_time);
+            return endDT >= now; // Se já passou a hora de fim e não foi iniciado, vai para o histórico
+          });
+
+          // Filtrar disponibilidades ativas
+          const activeAvails = (availabilities || []).filter(a => {
+            const endDT = getShiftEndDateTime(a.date, a.start_time, a.end_time);
+            return endDT >= now;
+          });
+
+          if (activeAvails.length === 0 && activeShifts.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Sem horários ativos ou disponibilidades para hoje e dias futuros.</p>';
             return;
           }
 
@@ -216,15 +259,12 @@
               } else if (shift.status === 'started') {
                 statusHtml = `<span class="status-badge status-started">Em andamento</span>`;
                 actionHtml = `<button class="end-btn" onclick="window.showEndShiftForm('${shift.id}')">🏁 Encerrar Turno</button>`;
-              } else if (shift.status === 'completed') {
-                statusHtml = `<span class="status-badge status-completed">Concluído</span>`;
-                actionHtml = `<span style="font-size:13px; color:#666;">Turno encerrado. Ver histórico.</span>`;
               }
             } else {
               cardId = `avail-${avail.id}`;
               vehicleHtml = `⚠️ Sem Viatura (Livre)`;
-              statusHtml = `<span class="status-badge" style="background:#e2e3e5; color:#383d41;">Aguarda Atribuição</span>`;
-              actionHtml = `<span style="font-size:13px; color:#666;">A aguardar planeamento do administrador.</span>`;
+              statusHtml = `<span class="status-badge" style="background:#e2e8f0; color:#475569;">Aguarda Atribuição</span>`;
+              actionHtml = `<span style="font-size:13px; color:#64748b;">A aguardar planeamento do administrador.</span>`;
             }
 
             return `
@@ -235,18 +275,18 @@
                   ${statusHtml}
                 </div>
                 <div class="shift-actions">${actionHtml}</div>
-                <div class="shift-form-container" id="${formContainerId}" style="display:none; margin-top:12px; padding:15px; background:#f8f9fa; border-radius:6px; border:1px dashed #ced4da;"></div>
+                <div class="shift-form-container" id="${formContainerId}" style="display:none; margin-top:12px; padding:15px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
               </div>
             `;
           };
 
-          (availabilities || []).forEach(avail => {
-            const shift = (shifts || []).find(s => s.date === avail.date && s.start_time === avail.start_time && s.end_time === avail.end_time);
+          activeAvails.forEach(avail => {
+            const shift = activeShifts.find(s => s.date === avail.date && s.start_time === avail.start_time && s.end_time === avail.end_time);
             html += generateCard(avail, shift);
             if (shift) processedShiftIds.add(shift.id);
           });
 
-          (shifts || []).forEach(shift => {
+          activeShifts.forEach(shift => {
             if (!processedShiftIds.has(shift.id)) {
               html += generateCard(null, shift);
             }
@@ -264,21 +304,22 @@
         const formContainer = document.getElementById(`form-container-${shiftId}`);
         formContainer.style.display = 'block';
         formContainer.innerHTML = `
-          <h4>🚦 Iniciar Turno</h4>
-          <form id="start-form-${shiftId}" class="inline-form">
+          <h4 style="color:#2563eb; margin-top:0;">🚦 Iniciar Turno</h4>
+          <form id="start-form-${shiftId}" style="background:transparent; padding:0; border:none; box-shadow:none; margin-bottom:0;">
             <label>🔢 Km iniciais:
               <input type="number" id="start-km-${shiftId}" required placeholder="Ex: 12345">
             </label>
-            <div class="photo-buttons">
-              <button type="button" class="camera-btn" onclick="document.getElementById('start-photo-${shiftId}').click()">
+            <div class="photo-buttons" style="margin-top:10px;">
+              <button type="button" class="edit-btn" onclick="document.getElementById('start-photo-${shiftId}').click()">
                 📷 Foto / Galeria
               </button>
               <span id="start-photo-name-${shiftId}" class="photo-name"></span>
-              <!-- Removido o capture="environment" para permitir escolha entre câmara e galeria -->
               <input type="file" id="start-photo-${shiftId}" accept="image/*" style="display:none;">
             </div>
-            <button type="submit">✅ Confirmar Início</button>
-            <button type="button" class="cancel-btn" style="margin-top:10px;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+              <button type="submit" class="start-btn" style="flex:1;">✅ Confirmar</button>
+              <button type="button" class="cancel-btn" style="flex:1;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
+            </div>
           </form>
         `;
 
@@ -290,221 +331,137 @@
         document.getElementById(`start-form-${shiftId}`).addEventListener('submit', async (e) => {
           e.preventDefault();
           try {
-            const startKm = parseInt(document.getElementById(`start-km-${shiftId}`).value);
-            if (!startKm || startKm < 0) {
-              alert('Introduza um valor válido para os Km iniciais.');
+            const { data: currentShift, error: checkError } = await supabase.from('shifts').select('*').eq('id', shiftId).single();
+            if (checkError) throw checkError;
+
+            // Ponto 6: Validação de data de início
+            const todayStr = getLocalTodayString();
+            if (todayStr < currentShift.date) {
+              alert(`⚠️ Não pode iniciar este turno hoje.\n\nO turno está programado apenas para o dia ${currentShift.date.split('-').reverse().join('/')}.`);
               return;
             }
 
-            const { data: currentShift, error: checkError } = await supabase
-              .from('shifts')
-              .select('status')
-              .eq('id', shiftId)
-              .single();
-
-            if (checkError) throw checkError;
             if (currentShift.status !== 'assigned') {
               alert('Este turno já não pode ser iniciado. Recarregue a página.');
               loadMyShifts();
               return;
             }
 
+            const startKm = parseInt(document.getElementById(`start-km-${shiftId}`).value);
             const photoFile = document.getElementById(`start-photo-${shiftId}`).files[0];
             let startPhotoUrl = null;
 
             if (photoFile) {
               const compressed = await compressImage(photoFile);
               const path = `uploads/${Date.now()}_${photoFile.name}`;
-              const { error: uploadError } = await supabase.storage.from('fleet-photos').upload(path, compressed);
-              if (uploadError) throw uploadError;
+              await supabase.storage.from('fleet-photos').upload(path, compressed);
               const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
               startPhotoUrl = urlData.publicUrl;
             }
 
-            const { error: shiftError } = await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
-            if (shiftError) throw shiftError;
-
-            const { error: reportError } = await supabase.from('shift_reports').insert({
-              shift_id: shiftId,
-              driver_id: currentUser.id,
-              start_km: startKm,
-              start_photo_url: startPhotoUrl
+            await supabase.from('shifts').update({ status: 'started' }).eq('id', shiftId);
+            await supabase.from('shift_reports').insert({
+              shift_id: shiftId, driver_id: currentUser.id, start_km: startKm, start_photo_url: startPhotoUrl
             });
-            if (reportError) throw reportError;
 
             alert('Turno iniciado com sucesso!');
             loadMyShifts();
           } catch (err) {
-            console.error('Erro ao iniciar turno:', err);
             alert('Erro ao iniciar turno: ' + err.message);
           }
         });
       };
 
       window.showEndShiftForm = function(shiftId) {
-        supabase
-          .from('shifts')
-          .select('status')
-          .eq('id', shiftId)
-          .single()
-          .then(({ data: currentShift, error: checkError }) => {
-            if (checkError || !currentShift) {
-              alert('Erro ao verificar turno. Recarregue a página.');
-              loadMyShifts();
-              return;
-            }
+        supabase.from('shifts').select('*').eq('id', shiftId).single().then(({ data: currentShift, error: checkError }) => {
+          if (checkError || !currentShift) return;
 
-            if (currentShift.status !== 'started') {
-              alert('Este turno já foi encerrado. A lista será atualizada.');
-              loadMyShifts();
-              return;
-            }
+          const formContainer = document.getElementById(`form-container-${shiftId}`);
+          formContainer.style.display = 'block';
+          formContainer.innerHTML = `
+            <h4 style="color:#dc2626; margin-top:0;">🏁 Encerrar Turno</h4>
+            <form id="end-form-${shiftId}" style="background:transparent; padding:0; border:none; box-shadow:none; margin-bottom:0;">
+              <label>🔢 Km finais: <input type="number" id="end-km-${shiftId}" required placeholder="Ex: 12500"></label>
+              <label>⛽ Combustível (litros): <input type="number" step="0.01" id="fuel-litres-${shiftId}" placeholder="Ex: 45.5"></label>
+              <label>💰 Custo combustível (€): <input type="number" step="0.01" id="fuel-cost-${shiftId}" placeholder="Ex: 78.90"></label>
+              <label>💶 Valor faturado (€): <input type="number" step="0.01" id="invoiced-${shiftId}" placeholder="Ex: 250.00"></label>
+              <label>🧾 Nº fatura: <input type="text" id="invoice-num-${shiftId}" placeholder="Ex: FT-2024-001"></label>
+              <label>📝 Notas do turno: <textarea id="notes-${shiftId}" rows="2"></textarea></label>
+              
+              <div class="photo-buttons" style="margin-top:10px;">
+                <button type="button" class="edit-btn" onclick="document.getElementById('end-photo-${shiftId}').click()">📷 Foto / Galeria</button>
+                <span id="end-photo-name-${shiftId}" class="photo-name"></span>
+                <input type="file" id="end-photo-${shiftId}" accept="image/*" style="display:none;">
+              </div>
+              
+              <div style="display:flex; gap:10px; margin-top:15px;">
+                <button type="submit" class="end-btn" style="flex:1;">🏁 Encerrar</button>
+                <button type="button" class="cancel-btn" style="flex:1;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
+              </div>
+            </form>
+          `;
 
-            const formContainer = document.getElementById(`form-container-${shiftId}`);
-            formContainer.style.display = 'block';
-            formContainer.innerHTML = `
-              <h4>🏁 Encerrar Turno</h4>
-              <form id="end-form-${shiftId}" class="inline-form">
-                <label>🔢 Km finais:
-                  <input type="number" id="end-km-${shiftId}" required placeholder="Ex: 12500">
-                </label>
-                <label>⛽ Combustível abastecido (litros):
-                  <input type="number" step="0.01" id="fuel-litres-${shiftId}" placeholder="Ex: 45.5">
-                </label>
-                <label>💰 Custo do combustível (€):
-                  <input type="number" step="0.01" id="fuel-cost-${shiftId}" placeholder="Ex: 78.90">
-                </label>
-                <label>💶 Valor faturado no turno (€):
-                  <input type="number" step="0.01" id="invoiced-${shiftId}" placeholder="Ex: 250.00">
-                </label>
-                <label>🧾 Número da fatura:
-                  <input type="text" id="invoice-num-${shiftId}" placeholder="Ex: FT-2024-001">
-                </label>
-                <label>📝 Notas do turno:
-                  <textarea id="notes-${shiftId}" rows="2" placeholder="Observações sobre o turno..."></textarea>
-                </label>
-                <div class="photo-buttons">
-                  <button type="button" class="camera-btn" onclick="document.getElementById('end-photo-${shiftId}').click()">
-                    📷 Foto / Galeria
-                  </button>
-                  <span id="end-photo-name-${shiftId}" class="photo-name"></span>
-                  <!-- Removido o capture="environment" para permitir escolha entre câmara e galeria -->
-                  <input type="file" id="end-photo-${shiftId}" accept="image/*" style="display:none;">
-                </div>
-                <button type="submit" class="end-btn">🏁 Encerrar Turno</button>
-                <button type="button" class="cancel-btn" style="margin-top:10px;" onclick="document.getElementById('form-container-${shiftId}').style.display='none'">❌ Cancelar</button>
-              </form>
-            `;
-
-            document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
-              const fileName = this.files[0] ? this.files[0].name : '';
-              document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
-            });
-
-            document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
-              e.preventDefault();
-              await submitEndShift(shiftId);
-            });
+          document.getElementById(`end-photo-${shiftId}`).addEventListener('change', function() {
+            const fileName = this.files[0] ? this.files[0].name : '';
+            document.getElementById(`end-photo-name-${shiftId}`).textContent = fileName ? '📎 ' + fileName : '';
           });
+
+          document.getElementById(`end-form-${shiftId}`).addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Ponto 6: Validação de data de fim
+            const todayStr = getLocalTodayString();
+            if (todayStr < currentShift.date) {
+              alert(`⚠️ Não pode concluir este turno hoje.\n\nO turno pertence ao dia ${currentShift.date.split('-').reverse().join('/')}.`);
+              return;
+            }
+
+            try {
+              const endKm = parseInt(document.getElementById(`end-km-${shiftId}`).value);
+              const photoFile = document.getElementById(`end-photo-${shiftId}`).files[0];
+              let endPhotoUrl = null;
+
+              if (photoFile) {
+                const compressed = await compressImage(photoFile);
+                const path = `uploads/${Date.now()}_${photoFile.name}`;
+                await supabase.storage.from('fleet-photos').upload(path, compressed);
+                const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
+                endPhotoUrl = urlData.publicUrl;
+              }
+
+              await supabase.from('shift_reports').update({
+                end_km: endKm,
+                fuel_litres: document.getElementById(`fuel-litres-${shiftId}`).value || null,
+                fuel_cost: document.getElementById(`fuel-cost-${shiftId}`).value || null,
+                invoiced_amount: document.getElementById(`invoiced-${shiftId}`).value || null,
+                invoice_number: document.getElementById(`invoice-num-${shiftId}`).value || null,
+                notes: document.getElementById(`notes-${shiftId}`).value || null,
+                end_photo_url: endPhotoUrl,
+                closed: true,
+                updated_at: new Date().toISOString()
+              }).eq('shift_id', shiftId);
+
+              await supabase.from('shifts').update({ status: 'completed' }).eq('id', shiftId);
+
+              alert('Turno encerrado com sucesso!');
+              loadMyShifts();
+              loadHistory();
+            } catch (err) {
+              alert('Erro ao encerrar turno: ' + err.message);
+            }
+          });
+        });
       };
-
-      async function submitEndShift(shiftId) {
-        try {
-          const { data: currentShift, error: checkError } = await supabase
-            .from('shifts')
-            .select('status')
-            .eq('id', shiftId)
-            .single();
-
-          if (checkError) throw checkError;
-          if (currentShift.status !== 'started') {
-            alert('Este turno já foi encerrado por outra ação. A lista será atualizada.');
-            loadMyShifts();
-            return;
-          }
-
-          const endKm = parseInt(document.getElementById(`end-km-${shiftId}`).value);
-          if (!endKm || endKm < 0) {
-            alert('Introduza um valor válido para os Km finais.');
-            return;
-          }
-
-          const fuelLitres = document.getElementById(`fuel-litres-${shiftId}`).value || null;
-          const fuelCost = document.getElementById(`fuel-cost-${shiftId}`).value || null;
-          const invoiced = document.getElementById(`invoiced-${shiftId}`).value || null;
-          const invoiceNum = document.getElementById(`invoice-num-${shiftId}`).value || null;
-          const notes = document.getElementById(`notes-${shiftId}`).value || null;
-          const photoFile = document.getElementById(`end-photo-${shiftId}`).files[0];
-          let endPhotoUrl = null;
-
-          if (photoFile) {
-            const compressed = await compressImage(photoFile);
-            const path = `uploads/${Date.now()}_${photoFile.name}`;
-            const { error: uploadError } = await supabase.storage.from('fleet-photos').upload(path, compressed);
-            if (uploadError) throw uploadError;
-            const { data: urlData } = supabase.storage.from('fleet-photos').getPublicUrl(path);
-            endPhotoUrl = urlData.publicUrl;
-          }
-
-          const updateData = {
-            end_km: endKm,
-            fuel_litres: fuelLitres ? parseFloat(fuelLitres) : null,
-            fuel_cost: fuelCost ? parseFloat(fuelCost) : null,
-            invoiced_amount: invoiced ? parseFloat(invoiced) : null,
-            invoice_number: invoiceNum,
-            notes: notes,
-            closed: true,
-            updated_at: new Date().toISOString()
-          };
-          if (endPhotoUrl) updateData.end_photo_url = endPhotoUrl;
-
-          const { error: reportError } = await supabase
-            .from('shift_reports')
-            .update(updateData)
-            .eq('shift_id', shiftId);
-
-          if (reportError) throw reportError;
-
-          const { error: shiftError } = await supabase
-            .from('shifts')
-            .update({ status: 'completed' })
-            .eq('id', shiftId)
-            .eq('status', 'started');
-
-          if (shiftError) throw shiftError;
-
-          alert('Turno encerrado com sucesso!');
-          loadMyShifts();
-          loadHistory();
-        } catch (err) {
-          console.error('Erro ao encerrar turno:', err);
-          alert('Erro ao encerrar turno: ' + err.message);
-          loadMyShifts();
-        }
-      }
 
       // =============================================
       // DISPONIBILIDADE
       // =============================================
       async function loadAvailability() {
         try {
-          const { data: existing } = await supabase
-            .from('driver_availability')
-            .select('*')
-            .eq('driver_id', currentUser.id)
-            .gte('date', new Date().toISOString().split('T')[0])
-            .order('date');
-
-          availabilityPeriods = (existing || []).map(a => ({
-            date: a.date,
-            start_time: a.start_time,
-            end_time: a.end_time
-          }));
-
+          const { data: existing } = await supabase.from('driver_availability').select('*').eq('driver_id', currentUser.id).gte('date', getLocalTodayString()).order('date');
+          availabilityPeriods = (existing || []).map(a => ({ date: a.date, start_time: a.start_time, end_time: a.end_time }));
           renderPeriodsList();
-        } catch (err) {
-          console.error('Erro ao carregar disponibilidade:', err);
-        }
+        } catch (err) { console.error('Erro:', err); }
       }
 
       function renderPeriodsList() {
@@ -526,9 +483,9 @@
             const dateLabel = date.split('-').reverse().join('/');
             html += `<div style="margin-bottom:10px;"><strong>📅 ${dateLabel}</strong>`;
             grouped[date].forEach((p) => {
-              html += `<div style="display:flex;align-items:center;gap:10px;margin:5px 0;padding:8px;background:#fff;border-radius:4px;border:1px solid #dee2e6;">
-                <span style="font-size:15px;">🕐 ${p.start_time?.substring(0,5)} - ${p.end_time?.substring(0,5)}</span>
-                <button class="delete-btn-sm" data-date="${p.date}" data-start="${p.start_time}" data-end="${p.end_time}" style="margin-left:auto; padding:6px 10px;">🗑️ Remover</button>
+              html += `<div style="display:flex;align-items:center;gap:10px;margin:5px 0;padding:10px;background:#fff;border-radius:6px;border:1px solid #e2e8f0;">
+                <span style="font-size:15px; font-weight:500;">🕐 ${p.start_time?.substring(0,5)} - ${p.end_time?.substring(0,5)}</span>
+                <button class="delete-btn-sm" data-date="${p.date}" data-start="${p.start_time}" data-end="${p.end_time}" style="margin-left:auto; padding:6px 12px;">🗑️ Remover</button>
               </div>`;
             });
             html += '</div>';
@@ -564,7 +521,6 @@
         availabilityPeriods.sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time));
         renderPeriodsList();
         
-        // Limpar apenas as horas, manter a data para facilitar
         document.getElementById('period-start').value = '';
         document.getElementById('period-end').value = '';
         document.getElementById('period-start').focus();
@@ -600,26 +556,23 @@
       document.getElementById('save-availability-btn').addEventListener('click', async () => {
         try {
           const msg = document.getElementById('availability-msg');
-          msg.textContent = 'A guardar...'; msg.style.color = '#666';
+          msg.textContent = 'A guardar...'; msg.style.color = '#64748b';
 
-          await supabase.from('driver_availability').delete().eq('driver_id', currentUser.id).gte('date', new Date().toISOString().split('T')[0]);
+          await supabase.from('driver_availability').delete().eq('driver_id', currentUser.id).gte('date', getLocalTodayString());
 
           if (availabilityPeriods.length > 0) {
             const inserts = availabilityPeriods.map(p => ({
-              driver_id: currentUser.id,
-              date: p.date,
-              start_time: p.start_time,
-              end_time: p.end_time
+              driver_id: currentUser.id, date: p.date, start_time: p.start_time, end_time: p.end_time
             }));
             const { error } = await supabase.from('driver_availability').insert(inserts);
             if (error) throw error;
           }
 
-          msg.textContent = 'Disponibilidade guardada com sucesso!'; msg.style.color = 'green';
-          await loadMyShifts(); // Atualiza a vista principal
+          msg.textContent = 'Disponibilidade guardada com sucesso!'; msg.style.color = '#10b981';
+          await loadMyShifts(); 
         } catch (err) {
           document.getElementById('availability-msg').textContent = 'Erro: ' + err.message;
-          document.getElementById('availability-msg').style.color = 'red';
+          document.getElementById('availability-msg').style.color = '#ef4444';
         }
       });
 
@@ -631,28 +584,59 @@
       });
 
       // =============================================
-      // HISTÓRICO
+      // HISTÓRICO (Concluídos + Expirados)
       // =============================================
       async function loadHistory() {
         try {
-          const { data, error } = await supabase
+          // 1. Buscar relatórios (turnos concluídos ou iniciados)
+          const { data: reports, error: repError } = await supabase
             .from('shift_reports')
-            .select('*, shifts(date, vehicles(*))')
+            .select('*, shifts(date, start_time, end_time, vehicles(*))')
             .eq('driver_id', currentUser.id)
             .order('created_at', { ascending: false });
+          if (repError) throw repError;
 
-          if (error) throw error;
+          // 2. Buscar turnos atribuídos que expiraram (Ponto 9)
+          const { data: allShifts, error: shiftError } = await supabase
+            .from('shifts')
+            .select('*, vehicles(*)')
+            .eq('driver_id', currentUser.id)
+            .eq('status', 'assigned');
+          if (shiftError) throw shiftError;
+
+          const now = new Date();
+          const expiredShifts = (allShifts || []).filter(s => {
+            const endDT = getShiftEndDateTime(s.date, s.start_time, s.end_time);
+            return endDT < now;
+          });
 
           const container = document.getElementById('history-list');
-          if (!data || data.length === 0) {
+          
+          if ((!reports || reports.length === 0) && expiredShifts.length === 0) {
             container.innerHTML = '<p class="empty-msg">Nenhum turno no histórico.</p>';
             return;
           }
 
-          container.innerHTML = data.map(r => {
+          let html = '';
+
+          // Renderizar os Expirados primeiro (ou misturados, mas vamos colocar no topo para destaque)
+          expiredShifts.forEach(s => {
+            html += `
+              <div class="card history-card" style="border-left: 4px solid #f59e0b; opacity: 0.8;">
+                <div class="history-info">
+                  <strong>📅 ${s.date.split('-').reverse().join('/')} | 🚗 ${s.vehicles?.license_plate || 'N/A'}</strong>
+                  <span style="color: #b45309; font-weight: bold;">⚠️ Não Iniciado / Expirado</span>
+                  <span>O turno das ${s.start_time.substring(0,5)} às ${s.end_time.substring(0,5)} terminou sem ser iniciado.</span>
+                </div>
+              </div>
+            `;
+          });
+
+          // Renderizar os Concluídos
+          (reports || []).forEach(r => {
             const distance = (r.start_km && r.end_km) ? (r.end_km - r.start_km) : null;
-            return `
-              <div class="card history-card">
+            html += `
+              <div class="card history-card" style="border-left: 4px solid #10b981;">
                 <div class="history-info">
                   <strong>📅 ${r.shifts?.date.split('-').reverse().join('/') || 'N/A'} | 🚗 ${r.shifts?.vehicles?.license_plate || 'N/A'}</strong>
                   <span>🔢 Km: ${r.start_km || '?'} → ${r.end_km || '?'} ${distance ? '| Distância: ' + distance + ' km' : ''}</span>
@@ -668,25 +652,23 @@
                 ${r.closed ? `<button class="add-note-btn" data-add-note="${r.id}">✏️ Adicionar/Editar nota pós-encerramento</button>` : ''}
               </div>
             `;
-          }).join('');
+          });
+
+          container.innerHTML = html;
 
           container.querySelectorAll('[data-add-note]').forEach(btn => {
             btn.addEventListener('click', async () => {
               const reportId = btn.dataset.addNote;
-              const currentNote = data.find(r => r.id == reportId)?.notes_after_close || '';
+              const currentNote = reports.find(r => r.id == reportId)?.notes_after_close || '';
               const note = prompt('Escreva ou edite a nota pós-encerramento:', currentNote);
               if (note !== null) {
                 const { error: updateError } = await supabase.from('shift_reports').update({ notes_after_close: note }).eq('id', reportId);
-                if (updateError) {
-                  alert('Erro ao guardar nota: ' + updateError.message);
-                } else {
-                  await loadHistory();
-                }
+                if (updateError) alert('Erro ao guardar nota: ' + updateError.message);
+                else await loadHistory();
               }
             });
           });
         } catch (err) {
-          console.error('Erro ao carregar histórico:', err);
           document.getElementById('history-list').innerHTML = '<p class="error-msg">Erro ao carregar histórico: ' + err.message + '</p>';
         }
       }
@@ -701,24 +683,13 @@
             img.onload = () => {
               const canvas = document.createElement('canvas');
               const maxWidth = 1200;
-              let width = img.width;
-              let height = img.height;
-              if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
+              let width = img.width, height = img.height;
+              if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
+              canvas.width = width; canvas.height = height;
+              canvas.getContext('2d').drawImage(img, 0, 0, width, height);
               canvas.toBlob((blob) => {
-                if (!blob) {
-                  reject(new Error('Falha ao comprimir imagem'));
-                  return;
-                }
-                const fileName = `${Date.now()}_${file.name || 'foto.jpg'}`;
-                const compressedFile = new File([blob], fileName, { type: 'image/jpeg' });
-                resolve(compressedFile);
+                if (!blob) { reject(new Error('Falha ao comprimir imagem')); return; }
+                resolve(new File([blob], `${Date.now()}_${file.name || 'foto.jpg'}`, { type: 'image/jpeg' }));
               }, 'image/jpeg', 0.7);
             };
             img.onerror = () => reject(new Error('Erro ao carregar imagem'));

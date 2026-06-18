@@ -9,11 +9,9 @@
   <meta name="apple-mobile-web-app-title" content="Frota Admin">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Admin - Gestão de Frota</title>
-  <!-- Nova Fonte Moderna -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
 </head>
@@ -77,7 +75,7 @@
         <p class="empty-msg">Selecione uma data para ver as disponibilidades.</p>
       </div>
 
-      <h3 style="margin-top: 30px; border-top: 1px dashed #ccc; padding-top: 20px;">📅 Todos os Horários Criados (Futuros)</h3>
+      <h3 style="margin-top: 30px; border-top: 1px dashed #ccc; padding-top: 20px;">📅 Horários Futuros e Em Curso</h3>
       <div id="shifts-list">A carregar...</div>
     </div>
 
@@ -237,18 +235,22 @@
             const hasAlert = v.vehicle_maintenance && v.vehicle_maintenance.some(m => !m.is_completed && m.verification_date <= today);
             const alertBadge = hasAlert ? '<span class="blink">⚠️ MANUTENÇÃO ATRASADA</span>' : '';
 
+            // Ponto 1: Foto como ícone pequeno e redondo
+            const photoHtml = v.photo_url 
+              ? `<img src="${v.photo_url}" alt="Foto" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; flex-shrink: 0;">` 
+              : `<div style="width: 50px; height: 50px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🚗</div>`;
+
             return `
             <div class="card" id="vehicle-${v.id}">
-              <div class="vehicle-display">
-                ${v.photo_url ? `<img src="${v.photo_url}" alt="Foto veículo" class="vehicle-img">` : '<div class="no-photo">📷 Sem foto</div>'}
-                <div class="vehicle-info">
+              <div class="vehicle-display" style="flex-direction: row; align-items: center;">
+                ${photoHtml}
+                <div class="vehicle-info" style="flex: 1;">
                   <strong>${v.brand} ${v.model} ${alertBadge}</strong>
                   <span>Ano: ${v.year || 'N/A'} | Matrícula: ${v.license_plate}</span>
                 </div>
-                <div class="card-actions">
+                <div class="card-actions" style="flex-direction: row; width: auto;">
                   <button class="edit-btn" onclick="window.toggleEditVehicle('${v.id}')">✏️ Editar</button>
                   <button class="reset-btn" onclick="window.toggleMaintenance('${v.id}')">🔧 Manutenções</button>
-                  <button class="delete-btn" onclick="window.deleteVehicle('${v.id}')">🗑️ Apagar</button>
                 </div>
               </div>
 
@@ -260,7 +262,8 @@
                 <input type="number" id="ey-${v.id}" value="${v.year || ''}" placeholder="Ano">
                 <div class="edit-actions">
                   <button class="save-btn" onclick="window.saveVehicle('${v.id}')">💾 Guardar</button>
-                  <button class="cancel-btn" onclick="window.toggleEditVehicle('${v.id}')">❌ Cancelar</button>
+                  <button class="delete-btn" onclick="window.deleteVehicle('${v.id}')">🗑️ Apagar Veículo</button>
+                  <button class="cancel-btn" onclick="window.toggleEditVehicle('${v.id}')">❌ Fechar</button>
                 </div>
               </div>
 
@@ -277,10 +280,11 @@
                 <div id="maint-list-${v.id}">
                   ${renderMaintenanceList(v.id, v.vehicle_maintenance, false)}
                 </div>
-                <button class="cancel-btn" style="margin-top:10px; width:100%;" onclick="window.toggleCompletedMaintenance('${v.id}')" id="btn-toggle-maint-${v.id}">👁️ Ver Histórico Concluído</button>
+                <button class="cancel-btn" style="margin-top:10px; width:100%; background: #64748b !important;" onclick="window.toggleCompletedMaintenance('${v.id}')" id="btn-toggle-maint-${v.id}">👁️ Ver Histórico Concluído</button>
                 <div id="maint-list-completed-${v.id}" style="display:none; margin-top:10px;">
                   ${renderMaintenanceList(v.id, v.vehicle_maintenance, true)}
                 </div>
+                <button class="cancel-btn" style="margin-top:15px; width:100%;" onclick="window.toggleMaintenance('${v.id}')">❌ Fechar Manutenções</button>
               </div>
             </div>
           `}).join('');
@@ -399,77 +403,75 @@
                   <span>🔢 Nº Acesso: ${d.access_number || '-'}</span>
                 </div>
                 <div class="card-actions">
-                  <button class="edit-btn" data-edit-driver="${d.user_id}">✏️ Editar</button>
-                  <button class="reset-btn" data-reset="${d.email}">🔑 Repor Pass</button>
-                  <button class="delete-btn" data-delete="${d.user_id}">🗑️ Apagar</button>
+                  <button class="edit-btn" onclick="window.toggleEditDriver('${d.user_id}')">✏️ Editar</button>
                 </div>
               </div>
-              <div class="driver-edit" style="display:none;">
-                <input type="text" class="edit-fullname" value="${d.full_name || ''}" placeholder="Nome completo">
-                <input type="text" class="edit-access" value="${d.access_number || ''}" placeholder="Nº acesso" maxlength="4">
+              <div class="driver-edit" id="edit-drv-${d.user_id}" style="display:none;">
+                <input type="text" id="ed-name-${d.user_id}" value="${d.full_name || ''}" placeholder="Nome completo">
+                <input type="text" id="ed-acc-${d.user_id}" value="${d.access_number || ''}" placeholder="Nº acesso" maxlength="4">
+                
+                <!-- Ponto 2: Alterar Password do Colaborador -->
+                <input type="password" id="ed-pw-${d.user_id}" placeholder="Nova Palavra-passe (deixar em branco para manter)">
+                
                 <div class="edit-actions">
-                  <button class="save-btn" data-save-driver="${d.user_id}">💾 Guardar</button>
-                  <button class="cancel-btn" data-cancel-driver="${d.user_id}">❌ Cancelar</button>
+                  <button class="save-btn" onclick="window.saveDriver('${d.user_id}')">💾 Guardar</button>
+                  <button class="delete-btn" onclick="window.deleteDriver('${d.user_id}')">🗑️ Apagar</button>
+                  <button class="cancel-btn" onclick="window.toggleEditDriver('${d.user_id}')">❌ Fechar</button>
                 </div>
               </div>
             </div>
           `).join('');
-          setupDriverListeners();
         } catch (err) {
           document.getElementById('drivers-list').innerHTML = '<p class="error-msg">Erro: ' + err.message + '</p>';
         }
       }
 
-      function setupDriverListeners() {
-        document.querySelectorAll('[data-edit-driver]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const id = btn.dataset.editDriver;
-            document.querySelector(`#driver-${id} .driver-display`).style.display = 'none';
-            document.querySelector(`#driver-${id} .driver-edit`).style.display = 'block';
-          });
-        });
-        document.querySelectorAll('[data-cancel-driver]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const id = btn.dataset.cancelDriver;
-            document.querySelector(`#driver-${id} .driver-display`).style.display = 'flex';
-            document.querySelector(`#driver-${id} .driver-edit`).style.display = 'none';
-          });
-        });
-        document.querySelectorAll('[data-save-driver]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = btn.dataset.saveDriver;
-            const fullName = document.querySelector(`#driver-${id} .edit-fullname`).value;
-            const accessNumber = document.querySelector(`#driver-${id} .edit-access`).value;
-            await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', id);
-            loadDrivers();
-            loadShiftsPanel();
-          });
-        });
-        document.querySelectorAll('[data-reset]').forEach(btn => {
-          btn.addEventListener('click', async () => {
+      window.toggleEditDriver = (id) => {
+        const el = document.getElementById(`edit-drv-${id}`);
+        el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+      };
+
+      window.saveDriver = async (id) => {
+        const fullName = document.getElementById(`ed-name-${id}`).value;
+        const accessNumber = document.getElementById(`ed-acc-${id}`).value;
+        const newPassword = document.getElementById(`ed-pw-${id}`).value;
+
+        // Atualiza Perfil
+        await supabase.from('profiles').update({ full_name: fullName, access_number: accessNumber }).eq('user_id', id);
+
+        // Atualiza Password (se preenchida)
+        if (newPassword) {
+          try {
             const res = await fetch(window.EDGE_FUNCTION_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-              body: JSON.stringify({ action: 'reset-password', email: btn.dataset.reset })
+              body: JSON.stringify({ action: 'update-password', userId: id, password: newPassword })
             });
             const result = await res.json();
-            alert(result.error ? 'Erro: ' + result.error : 'Email de recuperação enviado para ' + btn.dataset.reset);
-          });
+            if (result.error) {
+              alert('Erro ao atualizar password: ' + result.error + '\n(A Edge Function pode não suportar esta ação ainda).');
+            } else {
+              alert('Palavra-passe atualizada com sucesso!');
+            }
+          } catch (err) {
+            alert('Erro ao contactar servidor para atualizar password.');
+          }
+        }
+        
+        loadDrivers();
+      };
+
+      window.deleteDriver = async (id) => {
+        if (!confirm('Apagar este colaborador? Esta ação é irreversível.')) return;
+        const res = await fetch(window.EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ action: 'delete-driver', userId: id })
         });
-        document.querySelectorAll('[data-delete]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            if (!confirm('Apagar este colaborador? Esta ação é irreversível.')) return;
-            const res = await fetch(window.EDGE_FUNCTION_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-              body: JSON.stringify({ action: 'delete-driver', userId: btn.dataset.delete })
-            });
-            await res.json();
-            loadDrivers();
-            loadShiftsPanel();
-          });
-        });
-      }
+        await res.json();
+        loadDrivers();
+        loadShiftsPanel();
+      };
 
       // ---------- HORÁRIOS ----------
       async function loadShiftsPanel() {
@@ -524,46 +526,39 @@
               
             driverData.slots.forEach(slot => {
               const timeLabel = slot.start_time.substring(0,5) + ' - ' + slot.end_time.substring(0,5);
-              const existingShift = shifts.find(s => s.driver_id === driverId && s.start_time === slot.start_time && s.end_time === slot.end_time);
+              const existingShift = shifts.find(s => s.driver_id === driverId && s.start_time >= slot.start_time && s.end_time <= slot.end_time);
 
               html += `<div style="display: flex; flex-direction: column; gap: 10px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6;">
-                <span style="font-weight: bold; font-size: 14px;">🕐 ${timeLabel}</span>`;
+                <span style="font-weight: bold; font-size: 14px;">🕐 Disp: ${timeLabel}</span>`;
 
               if (existingShift) {
                 html += `<div id="shift-view-${existingShift.id}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;">
-                  <span style="color: #28a745; font-weight: bold; flex: 1; font-size: 14px;">✅ Atribuído: ${existingShift.vehicles?.brand} (${existingShift.vehicles?.license_plate})</span>
+                  <span style="color: #28a745; font-weight: bold; flex: 1; font-size: 14px;">✅ Atribuído (${existingShift.start_time.substring(0,5)} - ${existingShift.end_time.substring(0,5)}): ${existingShift.vehicles?.brand} (${existingShift.vehicles?.license_plate})</span>
                   <div style="display: flex; gap: 8px;">
-                    <button class="edit-btn" style="padding: 6px 12px; font-size: 13px; margin: 0;" onclick="window.showEditShift('${existingShift.id}')">✏️ Editar</button>
                     <button class="delete-btn-sm" style="padding: 6px 12px; font-size: 13px; margin: 0;" onclick="window.removeShift('${existingShift.id}')">🗑️ Remover</button>
                   </div>
                 </div>`;
-
-                let editVehicleOptions = '<option value="">Selecione a Viatura...</option>';
-                allVehiclesData.forEach(v => {
-                  const isVehicleUsed = shifts.find(s => s.vehicle_id === v.id && s.start_time === slot.start_time && s.end_time === slot.end_time && s.id !== existingShift.id);
-                  if (isVehicleUsed) { editVehicleOptions += `<option value="${v.id}" disabled>❌ ${v.brand} (${v.license_plate}) - Em uso</option>`; } 
-                  else { const selected = v.id === existingShift.vehicle_id ? 'selected' : ''; editVehicleOptions += `<option value="${v.id}" ${selected}>🚗 ${v.brand} (${v.license_plate})</option>`; }
-                });
-
-                html += `<div id="shift-edit-${existingShift.id}" style="display: none; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;">
-                  <select id="edit-veh-select-${existingShift.id}" style="flex: 1; min-width: 150px; padding: 8px; font-size: 14px; margin: 0;">${editVehicleOptions}</select>
-                  <div style="display: flex; gap: 8px;">
-                    <button class="save-btn" style="padding: 6px 12px; font-size: 13px; margin: 0;" onclick="window.updateShift('${existingShift.id}')">💾 Guardar</button>
-                    <button class="cancel-btn" style="padding: 6px 12px; font-size: 13px; margin: 0;" onclick="window.cancelEditShift('${existingShift.id}')">❌ Cancelar</button>
-                  </div>
-                </div>`;
               } else {
+                // Ponto 4: Atribuição Parcial de Turno
                 let vehicleOptions = '<option value="">Selecione a Viatura...</option>';
                 allVehiclesData.forEach(v => {
-                  const isVehicleUsed = shifts.find(s => s.vehicle_id === v.id && s.start_time === slot.start_time && s.end_time === slot.end_time);
-                  if (isVehicleUsed) { vehicleOptions += `<option value="${v.id}" disabled>❌ ${v.brand} (${v.license_plate}) - Em uso</option>`; } 
-                  else { vehicleOptions += `<option value="${v.id}">🚗 ${v.brand} (${v.license_plate})</option>`; }
+                  vehicleOptions += `<option value="${v.id}">🚗 ${v.brand} (${v.license_plate})</option>`;
                 });
 
-                html += `<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;">
-                  <span style="color: #856404; font-weight: bold; font-size: 14px; min-width: 120px;">⚠️ Sem Viatura (Livre)</span>
-                  <select id="veh-select-${slot.id}" style="flex: 1; min-width: 150px; padding: 8px; font-size: 14px; margin: 0;">${vehicleOptions}</select>
-                  <button class="save-btn" style="padding: 6px 12px; font-size: 13px; margin: 0;" onclick="window.assignShift('${driverId}', '${date}', '${slot.start_time}', '${slot.end_time}', '${slot.id}')">✅ Atribuir</button>
+                html += `<div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                  <span style="color: #856404; font-weight: bold; font-size: 14px;">⚠️ Sem Viatura (Livre)</span>
+                  
+                  <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label style="flex:1; min-width: 100px; margin:0;">Início:
+                      <input type="time" id="assign-start-${slot.id}" value="${slot.start_time.substring(0,5)}" style="padding: 8px;">
+                    </label>
+                    <label style="flex:1; min-width: 100px; margin:0;">Fim:
+                      <input type="time" id="assign-end-${slot.id}" value="${slot.end_time.substring(0,5)}" style="padding: 8px;">
+                    </label>
+                  </div>
+
+                  <select id="veh-select-${slot.id}" style="width: 100%; padding: 8px; font-size: 14px;">${vehicleOptions}</select>
+                  <button class="save-btn" style="padding: 8px 12px; font-size: 13px;" onclick="window.assignShift('${driverId}', '${date}', '${slot.id}')">✅ Atribuir Período</button>
                 </div>`;
               }
               html += `</div>`;
@@ -579,10 +574,16 @@
           const today = new Date().toISOString().split('T')[0];
           const { data: shifts, error } = await supabase.from('shifts').select('*, vehicles(license_plate, brand, model), profiles!driver_id(full_name)').gte('date', today).order('date');
           if (error) throw error;
+          
           const shiftsContainer = document.getElementById('shifts-list');
-          if (!shifts || shifts.length === 0) { shiftsContainer.innerHTML = '<p class="empty-msg">Nenhum horário futuro criado.</p>'; } 
-          else {
-            shiftsContainer.innerHTML = shifts.map(s => `
+          
+          // Ponto 3: Atalho para Turnos Terminados
+          let html = `<button class="export-btn" onclick="document.querySelector('[data-tab=reports]').click()" style="margin-bottom: 15px; width: 100%; background: #64748b !important;">📂 Ver Turnos Terminados (Ir para Relatórios)</button>`;
+
+          if (!shifts || shifts.length === 0) { 
+            html += '<p class="empty-msg">Nenhum horário futuro criado.</p>'; 
+          } else {
+            html += shifts.map(s => `
               <div class="card" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;">
                 <div style="flex:1; min-width:200px;">
                   <strong>👤 ${s.profiles?.full_name || 'N/A'}</strong> — 🚗 ${s.vehicles?.brand || ''} ${s.vehicles?.model || ''} (${s.vehicles?.license_plate || 'N/A'})<br>
@@ -592,32 +593,24 @@
               </div>
             `).join('');
           }
+          shiftsContainer.innerHTML = html;
         } catch (err) { console.error('Erro ao carregar todos os horários:', err); }
       }
 
-      window.assignShift = async (driverId, date, startTime, endTime, slotId) => {
+      window.assignShift = async (driverId, date, slotId) => {
         const vehicleId = document.getElementById(`veh-select-${slotId}`).value;
+        const startTime = document.getElementById(`assign-start-${slotId}`).value;
+        const endTime = document.getElementById(`assign-end-${slotId}`).value;
+
         if (!vehicleId) { alert('Selecione uma viatura na lista primeiro.'); return; }
+        if (startTime >= endTime) { alert('A hora de início deve ser anterior à hora de fim.'); return; }
+
         try {
           const { error } = await supabase.from('shifts').insert({ driver_id: driverId, vehicle_id: parseInt(vehicleId), date: date, start_time: startTime, end_time: endTime });
           if (error) throw error;
           await loadDailyPlan();
           await loadAllFutureShifts();
         } catch (err) { alert('Erro ao atribuir turno: ' + err.message); }
-      };
-
-      window.showEditShift = (shiftId) => { document.getElementById(`shift-view-${shiftId}`).style.display = 'none'; document.getElementById(`shift-edit-${shiftId}`).style.display = 'flex'; };
-      window.cancelEditShift = (shiftId) => { document.getElementById(`shift-view-${shiftId}`).style.display = 'flex'; document.getElementById(`shift-edit-${shiftId}`).style.display = 'none'; };
-
-      window.updateShift = async (shiftId) => {
-        const vehicleId = document.getElementById(`edit-veh-select-${shiftId}`).value;
-        if (!vehicleId) { alert('Selecione uma viatura.'); return; }
-        try {
-          const { error } = await supabase.from('shifts').update({ vehicle_id: parseInt(vehicleId) }).eq('id', shiftId);
-          if (error) throw error;
-          await loadDailyPlan();
-          await loadAllFutureShifts();
-        } catch (err) { alert('Erro ao atualizar: ' + err.message); }
       };
 
       window.removeShift = async (shiftId) => {
