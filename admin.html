@@ -78,7 +78,7 @@
       
       <div class="card" style="background: #f0f9ff; border-color: #bae6fd;">
         <h3 style="color: #0369a1; margin-top: 0;">💡 Gestão de Frota SaaS</h3>
-        <p style="font-size: 14px; color: #0c4a6e;">Bem-vindo ao seu painel de controlo. Utilize as abas acima para gerir a sua operação diária.</p>
+        <p style="font-size: 14px; color: #0c4a6e;">Bem-vindo ao seu painel de controlo. Utilize as abas acima para gerir a sua operação diária de forma eficiente.</p>
       </div>
     </div>
 
@@ -149,7 +149,7 @@
       <!-- Importação em Lote -->
       <div class="import-zone">
         <h3 style="margin-top:0; color:#0369a1;">📄 Importação em Lote</h3>
-        <p style="font-size:13px; color:#0c4a6e; margin-bottom:15px;">Descarregue o modelo com os seus condutores, preencha os valores e carregue o ficheiro.</p>
+        <p style="font-size:13px; color:#0c4a6e; margin-bottom:15px;">Descarregue o modelo com os seus condutores, preencha os valores e carregue o ficheiro CSV.</p>
         <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="download-template-btn" style="background:#0ea5e9 !important;">📥 1. Descarregar Modelo</button>
           <label class="save-btn" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:12px 24px; margin:0;">
@@ -184,11 +184,11 @@
       <h2>Definições do Administrador</h2>
       <form id="admin-settings-form">
         <label>👤 Nome de utilizador: <input type="text" id="admin-username"></label>
-        <label>🔒 Nova palavra-passe: <input type="password" id="admin-new-pw1"></label>
-        <label>🔒 Confirmar: <input type="password" id="admin-new-pw2"></label>
+        <label>🔒 Nova palavra-passe: <input type="password" id="admin-new-pw1" placeholder="Deixar em branco para manter"></label>
+        <label>🔒 Confirmar: <input type="password" id="admin-new-pw2" placeholder="Confirmar nova password"></label>
         <button type="submit">💾 Guardar Alterações</button>
       </form>
-      <p id="settings-msg"></p>
+      <p id="settings-msg" style="text-align:center; margin-top:10px; font-weight:bold;"></p>
     </div>
   </div>
 
@@ -203,6 +203,8 @@
     (function() {
       document.getElementById('current-year').textContent = new Date().getFullYear();
       const supabase = window.supabase;
+      if (!supabase) { document.body.innerHTML = '<h1>Erro: Supabase não inicializado.</h1>'; return; }
+
       let sessionToken = '';
       let currentCompanyId = '';
       let allDriversData = [];
@@ -246,10 +248,8 @@
           }
 
           loadDashboard();
-          loadVehicles();
-          loadDrivers();
           setupForms();
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error('Erro inicial:', err); }
       })();
 
       // =============================================
@@ -347,7 +347,7 @@
         loadVehicles();
       };
 
-      window.deleteVehicle = async (id) => { if (confirm('Apagar veículo?')) { await supabase.from('vehicles').delete().eq('id', id); loadVehicles(); } };
+      window.deleteVehicle = async (id) => { if (confirm('Apagar veículo permanentemente?')) { await supabase.from('vehicles').delete().eq('id', id); loadVehicles(); } };
 
       window.addMaint = async (vid) => {
         const note = document.getElementById(`mn-${vid}`).value;
@@ -407,12 +407,23 @@
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
             body: JSON.stringify({ action: 'update-password', userId: id, password: pw })
           });
-          alert('Password atualizada!');
+          alert('Password atualizada com sucesso!');
         }
         loadDrivers();
       };
 
-      window.deleteDriver = async (id) => { if (confirm('Apagar colaborador?')) { await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'delete-driver', userId: id }) }); loadDrivers(); } };
+      window.deleteDriver = async (id) => { 
+        if (confirm('Apagar colaborador permanentemente?')) { 
+          const res = await fetch(window.EDGE_FUNCTION_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, 
+            body: JSON.stringify({ action: 'delete-driver', userId: id }) 
+          }); 
+          const result = await res.json();
+          if (result.error) alert(result.error);
+          loadDrivers(); 
+        } 
+      };
 
       // =============================================
       // HORÁRIOS (PLANEAMENTO DIÁRIO)
@@ -428,7 +439,7 @@
           currentShiftsData = shifts || [];
 
           const grid = document.getElementById('admin-plan-grid');
-          if (!avails?.length) { grid.innerHTML = '<p class="empty-msg">Sem disponibilidade para este dia.</p>'; return; }
+          if (!avails?.length) { grid.innerHTML = '<p class="empty-msg">Sem disponibilidade registada para este dia.</p>'; return; }
 
           grid.innerHTML = avails.map(a => {
             const s = shifts?.find(sh => sh.driver_id === a.driver_id && sh.start_time >= a.start_time && sh.end_time <= a.end_time);
@@ -474,15 +485,15 @@
         const vid = document.getElementById(`vs-${aid}`).value;
         const start = document.getElementById(`ts-${aid}`).value;
         const end = document.getElementById(`te-${aid}`).value;
-        if (!vid) return;
+        if (!vid) { alert('Selecione uma viatura.'); return; }
         await supabase.from('shifts').insert({ driver_id: did, vehicle_id: vid, date, start_time: start, end_time: end, company_id: currentCompanyId });
         loadShiftsPanel();
       };
 
-      window.removeShift = async (sid) => { if (confirm('Remover turno?')) { await supabase.from('shifts').delete().eq('id', sid); loadShiftsPanel(); } };
+      window.removeShift = async (sid) => { if (confirm('Remover este turno?')) { await supabase.from('shifts').delete().eq('id', sid); loadShiftsPanel(); } };
 
       document.getElementById('export-shifts-btn').addEventListener('click', () => {
-        if (!currentShiftsData.length) return;
+        if (!currentShiftsData.length) { alert('Sem dados para exportar.'); return; }
         let csv = 'Data;Condutor;Viatura;Matricula;Inicio;Fim\n' + currentShiftsData.map(s => `${s.date};${s.profiles?.full_name || ''};${s.vehicles?.brand};${s.vehicles?.license_plate};${s.start_time};${s.end_time}`).join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -517,9 +528,8 @@
         } catch (err) { console.error(err); }
       }
 
-      window.deletePayment = async (id) => { if (confirm('Apagar registo?')) { await supabase.from('payments').delete().eq('id', id); loadPayments(); } };
+      window.deletePayment = async (id) => { if (confirm('Apagar este registo de pagamento?')) { await supabase.from('payments').delete().eq('id', id); loadPayments(); } };
 
-      // Descarregar Modelo CSV
       document.getElementById('download-template-btn').addEventListener('click', () => {
         if (!allDriversData.length) { alert('Não existem condutores registados.'); return; }
         const headers = ['Nome', 'Email', 'Data Inicio (AAAA-MM-DD)', 'Data Fim (AAAA-MM-DD)', 'Valor Bruto', 'Valor S/IVA', 'Gorjetas', 'Comissao Slot', 'Valor a Pagar S/IVA', 'Seguro', 'Total Transf S/IVA', 'Total Transf C/IVA'];
@@ -534,7 +544,6 @@
         link.click();
       });
 
-      // Importar Ficheiro CSV
       document.getElementById('import-payments-file').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -593,7 +602,7 @@
         const { data } = await query;
         
         const out = document.getElementById('report-output');
-        if (!data?.length) { out.innerHTML = '<p class="empty-msg">Sem resultados.</p>'; return; }
+        if (!data?.length) { out.innerHTML = '<p class="empty-msg">Sem resultados encontrados.</p>'; return; }
         
         out.innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Data</th><th>Condutor</th><th>Viatura</th><th>Km</th><th>Faturado</th><th>Fotos</th></tr></thead><tbody>' + 
           data.map(r => `<tr>
@@ -607,6 +616,10 @@
               ${r.end_photo_url ? `<a href="${r.end_photo_url}" target="_blank">📸 Fim</a>` : ''}
             </td>
           </tr>`).join('') + '</tbody></table></div>';
+      });
+
+      document.getElementById('export-excel').addEventListener('click', () => {
+        alert('Funcionalidade de exportação de relatórios em desenvolvimento.');
       });
 
       // =============================================
@@ -623,7 +636,14 @@
             await supabase.storage.from('fleet-photos').upload(path, compressed);
             photo_url = supabase.storage.from('fleet-photos').getPublicUrl(path).data.publicUrl;
           }
-          await supabase.from('vehicles').insert({ brand: document.getElementById('v-brand').value, model: document.getElementById('v-model').value, license_plate: document.getElementById('v-plate').value, year: document.getElementById('v-year').value, photo_url, company_id: currentCompanyId });
+          await supabase.from('vehicles').insert({ 
+            brand: document.getElementById('v-brand').value, 
+            model: document.getElementById('v-model').value, 
+            license_plate: document.getElementById('v-plate').value, 
+            year: document.getElementById('v-year').value, 
+            photo_url, 
+            company_id: currentCompanyId 
+          });
           loadVehicles(); e.target.reset();
         });
 
@@ -631,9 +651,17 @@
           e.preventDefault();
           const email = document.getElementById('d-email').value;
           const password = document.getElementById('d-password').value;
-          const res = await fetch(window.EDGE_FUNCTION_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, body: JSON.stringify({ action: 'create-driver', email, password, fullName: document.getElementById('d-name').value, accessNumber: document.getElementById('d-access-number').value }) });
+          const fullName = document.getElementById('d-name').value;
+          const accessNumber = document.getElementById('d-access-number').value;
+          
+          const res = await fetch(window.EDGE_FUNCTION_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, 
+            body: JSON.stringify({ action: 'create-driver', email, password, fullName, accessNumber }) 
+          });
           const result = await res.json();
-          if (result.error) alert('Erro: ' + result.error); else { loadDrivers(); e.target.reset(); }
+          if (result.error) alert('Erro: ' + result.error); 
+          else { loadDrivers(); e.target.reset(); alert('Colaborador criado com sucesso!'); }
         });
 
         document.getElementById('payment-form').addEventListener('submit', async (e) => {
@@ -652,8 +680,9 @@
             total_transfer_no_vat: Number(document.getElementById('p-transfer-novat').value),
             total_transfer_vat: Number(document.getElementById('p-transfer-vat').value)
           };
-          await supabase.from('payments').insert(data);
-          loadPayments(); e.target.reset();
+          const { error } = await supabase.from('payments').insert(data);
+          if (error) alert('Erro ao guardar: ' + error.message);
+          else { loadPayments(); e.target.reset(); alert('Pagamento registado!'); }
         });
 
         document.getElementById('admin-settings-form').addEventListener('submit', async (e) => {
@@ -662,13 +691,35 @@
           const newUsername = document.getElementById('admin-username').value;
           const pw1 = document.getElementById('admin-new-pw1').value;
           const pw2 = document.getElementById('admin-new-pw2').value;
+          
           if (newUsername) await supabase.from('profiles').update({ username: newUsername }).eq('user_id', user.id);
-          if (pw1 && pw1 === pw2) await supabase.auth.updateUser({ password: pw1 });
-          document.getElementById('settings-msg').textContent = '✅ Guardado!';
+          if (pw1 && pw1 === pw2) {
+            const { error } = await supabase.auth.updateUser({ password: pw1 });
+            if (error) alert('Erro ao mudar password: ' + error.message);
+          }
+          document.getElementById('settings-msg').textContent = '✅ Alterações guardadas!';
         });
       }
 
-      function compressImage(file) { return new Promise(r => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const maxWidth = 1200; let w = img.width, h = img.height; if (w > maxWidth) { h *= maxWidth / w; w = maxWidth; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); canvas.toBlob(b => r(new File([b], `${Date.now()}.jpg`, { type: 'image/jpeg' })), 'image/jpeg', 0.7); }; }; }); }
+      function compressImage(file) { 
+        return new Promise(r => { 
+          const reader = new FileReader(); 
+          reader.readAsDataURL(file); 
+          reader.onload = (e) => { 
+            const img = new Image(); 
+            img.src = e.target.result; 
+            img.onload = () => { 
+              const canvas = document.createElement('canvas'); 
+              const maxWidth = 1200; 
+              let w = img.width, h = img.height; 
+              if (w > maxWidth) { h *= maxWidth / w; w = maxWidth; } 
+              canvas.width = w; canvas.height = h; 
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h); 
+              canvas.toBlob(b => r(new File([b], `${Date.now()}.jpg`, { type: 'image/jpeg' })), 'image/jpeg', 0.7); 
+            }; 
+          }; 
+        }); 
+      }
     })();
   </script>
 </body>
